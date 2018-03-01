@@ -286,6 +286,38 @@ class VersionEdit {
 
   uint64_t next_file_number() const { return next_file_number_; }
 
+  void SetPegasusDataVersion(uint32_t pegasus_data_version) {
+    has_pegasus_data_version_ = true;
+    pegasus_data_version_ = pegasus_data_version;
+  }
+
+  void SetLastManualCompactFinishTime(uint64_t ms) {
+    has_last_manual_compact_finish_time_ = true;
+    last_manual_compact_finish_time_ = ms;
+  }
+
+  bool HasLastSequence() const {
+    return has_last_sequence_;
+  }
+
+  SequenceNumber GetLastSequence() const {
+    return last_sequence_;
+  }
+
+  void GetLastFlushSeqDecree(SequenceNumber* sequence, uint64_t* decree) const {
+    *sequence = last_flush_sequence_;
+    *decree = last_flush_decree_;
+  }
+
+  void UpdateLastFlushSeqDecree(SequenceNumber sequence, uint64_t decree) {
+    if (sequence > last_flush_sequence_) {
+      assert(decree >= last_flush_decree_);
+      last_flush_sequence_ = sequence;
+      last_flush_decree_ = decree;
+      has_last_flush_seq_decree_ = true;
+    }
+  }
+
   // Add the specified file at the specified number.
   // REQUIRES: This version has not been saved (see VersionSet::SaveTo)
   // REQUIRES: "smallest" and "largest" are smallest and largest keys in file
@@ -381,17 +413,26 @@ class VersionEdit {
   uint64_t prev_log_number_;
   uint64_t next_file_number_;
   uint32_t max_column_family_;
+  uint32_t pegasus_data_version_;
+  uint64_t last_manual_compact_finish_time_;
   // The most recent WAL log number that is deleted
   uint64_t min_log_number_to_keep_;
   SequenceNumber last_sequence_;
+  // Used to mark the last sequence/decree of flushed memtables.
+  SequenceNumber last_flush_sequence_;
+  uint64_t last_flush_decree_;
+
   bool has_db_id_;
   bool has_comparator_;
   bool has_log_number_;
   bool has_prev_log_number_;
   bool has_next_file_number_;
   bool has_last_sequence_;
+  bool has_last_flush_seq_decree_;
   bool has_max_column_family_;
   bool has_min_log_number_to_keep_;
+  bool has_pegasus_data_version_;
+  bool has_last_manual_compact_finish_time_;
 
   DeletedFileSet deleted_files_;
   std::vector<std::pair<int, FileMetaData>> new_files_;

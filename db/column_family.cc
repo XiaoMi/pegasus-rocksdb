@@ -1326,6 +1326,8 @@ ColumnFamilySet::ColumnFamilySet(const std::string& dbname,
                                  WriteController* write_controller,
                                  BlockCacheTracer* const block_cache_tracer)
     : max_column_family_(0),
+      pegasus_data_version_(db_options->pegasus_data_version),
+      last_manual_compact_finish_time_(0),
       dummy_cfd_(new ColumnFamilyData(
           0, "", nullptr, nullptr, nullptr, ColumnFamilyOptions(), *db_options,
           env_options, nullptr, block_cache_tracer)),
@@ -1395,6 +1397,20 @@ void ColumnFamilySet::UpdateMaxColumnFamily(uint32_t new_max_column_family) {
 
 size_t ColumnFamilySet::NumberOfColumnFamilies() const {
   return column_families_.size();
+}
+
+uint32_t ColumnFamilySet::GetPegasusDataVersion() const { return pegasus_data_version_; }
+
+void ColumnFamilySet::SetPegasusDataVersion(uint32_t version) {
+  pegasus_data_version_ = version;
+}
+
+uint64_t ColumnFamilySet::GetLastManualCompactFinishTime() const {
+  return last_manual_compact_finish_time_;
+}
+
+void ColumnFamilySet::SetLastManualCompactFinishTime(uint64_t ms) {
+  last_manual_compact_finish_time_ = ms;
 }
 
 // under a DB mutex AND write thread

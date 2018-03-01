@@ -147,6 +147,63 @@ Status DBImpl::GetLiveFiles(std::vector<std::string>& ret,
   return Status::OK();
 }
 
+Status DBImpl::GetLiveFilesQuick(std::vector<std::string>& ret,
+                                 uint64_t* manifest_file_size,
+                                 SequenceNumber* last_sequence,
+                                 uint64_t* last_decree) const {
+  // ATTENTION(laiyingchun): only used for Pegasus.
+  assert(pegasus_data_);
+  *manifest_file_size = 0;
+  *last_sequence = 0;
+  *last_decree = 0;
+
+  mutex_.Lock();
+
+  // ATTENTION(qinzuoyan): only use default column family.
+  assert(versions_->GetColumnFamilySet()->NumberOfColumnFamilies() == 1u);
+
+  // Make a set of all of the live *.sst files
+  std::vector<FileDescriptor> live;
+  for (auto cfd : *versions_->GetColumnFamilySet()) {
+    if (cfd->IsDropped()) {
+      continue;
+    }
+    cfd->current()->AddLiveFiles(&live);
+    // get last sequence/decree
+    SequenceNumber seq;
+    uint64_t d;
+    cfd->current()->GetLastFlushSeqDecree(&seq, &d);
+    if (seq > *last_sequence) {
+      assert(d >= *last_decree);
+      *last_sequence = seq;
+      *last_decree = d;
+    }
+  }
+
+  ret.clear();
+  ret.reserve(live.size() + 3); //*.sst + CURRENT + MANIFEST + OPTIONS
+
+  // Put current and manifest files firstly to make them copied quickly,
+  // because the manifest file may be deleted when copying sstables.
+  // TODO(qinzuoyan): but now it may be not necessary because the manifest file
+  // must not be deleted when copying sstables..
+  ret.push_back(CurrentFileName(""));
+  ret.push_back(DescriptorFileName("", versions_->manifest_file_number()));
+  ret.push_back(OptionsFileName("", versions_->options_file_number()));
+
+  // create names of the live files. The names are not absolute
+  // paths, instead they are relative to dbname_;
+  for (auto live_file : live) {
+    ret.push_back(MakeTableFileName("", live_file.GetNumber()));
+  }
+
+  // find length of manifest file while holding the mutex lock
+  *manifest_file_size = versions_->manifest_file_size();
+
+  mutex_.Unlock();
+  return Status::OK();
+}
+
 Status DBImpl::GetSortedWalFiles(VectorLogPtr& files) {
   {
     // If caller disabled deletions, this function should return files that are

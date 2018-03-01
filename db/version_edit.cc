@@ -36,7 +36,8 @@ enum Tag : uint32_t {
   kNewFile = 7,
   // 8 was used for large value refs
   kPrevLogNumber = 9,
-  kMinLogNumberToKeep = 10,
+  kLastFlushSeqDecree = 10,
+  kMinLogNumberToKeep = 11,
   // Ignore-able field
   kDbId = kTagSafeIgnoreMask + 1,
 
@@ -48,6 +49,8 @@ enum Tag : uint32_t {
   kColumnFamilyAdd = 201,
   kColumnFamilyDrop = 202,
   kMaxColumnFamily = 203,
+  kValueSchemaVersion = 204,
+  kLastManualCompactFinishTime = 205,
 
   kInAtomicGroup = 300,
 };
@@ -124,17 +127,24 @@ void VersionEdit::Clear() {
   log_number_ = 0;
   prev_log_number_ = 0;
   last_sequence_ = 0;
+  last_flush_sequence_ = 0;
+  last_flush_decree_ = 0;
   next_file_number_ = 0;
   max_column_family_ = 0;
   min_log_number_to_keep_ = 0;
   has_db_id_ = false;
+  pegasus_data_version_ = 0;
+  last_manual_compact_finish_time_ = 0;
   has_comparator_ = false;
   has_log_number_ = false;
   has_prev_log_number_ = false;
   has_next_file_number_ = false;
   has_last_sequence_ = false;
+  has_last_flush_seq_decree_ = false;
   has_max_column_family_ = false;
   has_min_log_number_to_keep_ = false;
+  has_pegasus_data_version_ = false;
+  has_last_manual_compact_finish_time_ = false;
   deleted_files_.clear();
   new_files_.clear();
   column_family_ = 0;
@@ -166,9 +176,23 @@ bool VersionEdit::EncodeTo(std::string* dst) const {
   if (has_last_sequence_) {
     PutVarint32Varint64(dst, kLastSequence, last_sequence_);
   }
+  if (has_last_flush_seq_decree_) {
+    PutVarint32(dst, kLastFlushSeqDecree);
+    PutVarint64(dst, last_flush_sequence_);
+    PutVarint64(dst, last_flush_decree_);
+  }
   if (has_max_column_family_) {
     PutVarint32Varint32(dst, kMaxColumnFamily, max_column_family_);
   }
+  if (has_pegasus_data_version_) {
+    PutVarint32(dst, kValueSchemaVersion);
+    PutVarint32(dst, pegasus_data_version_);
+  }
+  if (has_last_manual_compact_finish_time_) {
+    PutVarint32(dst, kLastManualCompactFinishTime);
+    PutVarint64(dst, last_manual_compact_finish_time_);
+  }
+
   for (const auto& deleted : deleted_files_) {
     PutVarint32Varint32Varint64(dst, kDeletedFile, deleted.first /* level */,
                                 deleted.second /* file number */);
@@ -447,6 +471,14 @@ Status VersionEdit::DecodeFrom(const Slice& src) {
         }
         break;
 
+      case kLastFlushSeqDecree:
+        if (GetVarint64(&input, &last_flush_sequence_) && GetVarint64(&input, &last_flush_decree_)) {
+          has_last_flush_seq_decree_ = true;
+        } else {
+          msg = "last flush sequence number and decree";
+        }
+        break;
+
       case kMaxColumnFamily:
         if (GetVarint32(&input, &max_column_family_)) {
           has_max_column_family_ = true;
@@ -460,6 +492,22 @@ Status VersionEdit::DecodeFrom(const Slice& src) {
           has_min_log_number_to_keep_ = true;
         } else {
           msg = "min log number to kee";
+        }
+        break;
+
+      case kValueSchemaVersion:
+        if (GetVarint32(&input, &pegasus_data_version_)) {
+          has_pegasus_data_version_ = true;
+        } else {
+          msg = "Pegasus data version";
+        }
+        break;
+
+      case kLastManualCompactFinishTime:
+        if (GetVarint64(&input, &last_manual_compact_finish_time_)) {
+          has_last_manual_compact_finish_time_ = true;
+        } else {
+          msg = "last manual compact finish time";
         }
         break;
 
@@ -648,6 +696,12 @@ std::string VersionEdit::DebugString(bool hex_key) const {
     r.append("\n  LastSeq: ");
     AppendNumberTo(&r, last_sequence_);
   }
+  if (has_last_flush_seq_decree_) {
+    r.append("\n  LastFlushSeq: ");
+    AppendNumberTo(&r, last_flush_sequence_);
+    r.append("\n  LastFlushDecree: ");
+    AppendNumberTo(&r, last_flush_decree_);
+  }
   for (DeletedFileSet::const_iterator iter = deleted_files_.begin();
        iter != deleted_files_.end();
        ++iter) {
@@ -665,9 +719,17 @@ std::string VersionEdit::DebugString(bool hex_key) const {
     r.append(" ");
     AppendNumberTo(&r, f.fd.GetFileSize());
     r.append(" ");
+    r.append("[");
+    AppendNumberTo(&r, f.fd.smallest_seqno);
+    r.append(" .. ");
+    AppendNumberTo(&r, f.fd.largest_seqno);
+    r.append("]");
+    r.append(" ");
+    r.append("[");
     r.append(f.smallest.DebugString(hex_key));
     r.append(" .. ");
     r.append(f.largest.DebugString(hex_key));
+    r.append("]");
     if (f.oldest_blob_file_number != kInvalidBlobFileNumber) {
       r.append(" blob_file:");
       AppendNumberTo(&r, f.oldest_blob_file_number);
@@ -695,6 +757,14 @@ std::string VersionEdit::DebugString(bool hex_key) const {
     AppendNumberTo(&r, remaining_entries_);
     r.append(" entries remains");
   }
+  if (has_pegasus_data_version_) {
+    r.append("\n  ValueSchemaVersion: ");
+    AppendNumberTo(&r, pegasus_data_version_);
+  }
+  if (has_last_manual_compact_finish_time_) {
+    r.append("\n  LastManualCompactFinishTime: ");
+    AppendNumberTo(&r, last_manual_compact_finish_time_);
+  }
   r.append("\n}\n");
   return r;
 }
@@ -720,6 +790,10 @@ std::string VersionEdit::DebugJSON(int edit_num, bool hex_key) const {
   }
   if (has_last_sequence_) {
     jw << "LastSeq" << last_sequence_;
+  }
+  if (has_last_flush_seq_decree_) {
+    jw << "LastFlushSeq" << last_flush_sequence_;
+    jw << "LastFlushDecree" << last_flush_decree_;
   }
 
   if (!deleted_files_.empty()) {
@@ -775,6 +849,12 @@ std::string VersionEdit::DebugJSON(int edit_num, bool hex_key) const {
   }
   if (is_in_atomic_group_) {
     jw << "AtomicGroup" << remaining_entries_;
+  }
+  if (has_pegasus_data_version_) {
+    jw << "PegasusDataVersion" << pegasus_data_version_;
+  }
+  if (has_last_manual_compact_finish_time_) {
+    jw << "LastManualCompactFinishTime" << last_manual_compact_finish_time_;
   }
 
   jw.EndObject();

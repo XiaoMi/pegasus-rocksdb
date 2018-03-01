@@ -340,6 +340,12 @@ class DBImpl : public DB {
       uint64_t start_time, uint64_t end_time,
       std::unique_ptr<StatsHistoryIterator>* stats_iterator) override;
 
+  virtual uint64_t GetLastFlushedDecree() const override;
+
+  virtual uint32_t GetPegasusDataVersion() const override;
+
+  virtual uint64_t GetLastManualCompactFinishTime() const override;
+
 #ifndef ROCKSDB_LITE
   using DB::ResetStats;
   virtual Status ResetStats() override;
@@ -350,6 +356,10 @@ class DBImpl : public DB {
   virtual Status GetLiveFiles(std::vector<std::string>&,
                               uint64_t* manifest_file_size,
                               bool flush_memtable = true) override;
+  virtual Status GetLiveFilesQuick(std::vector<std::string>& ret,
+                                   uint64_t* manifest_file_size,
+                                   SequenceNumber* last_sequence,
+                                   uint64_t* last_decree) const override;
   virtual Status GetSortedWalFiles(VectorLogPtr& files) override;
   virtual Status GetCurrentWalFile(
       std::unique_ptr<LogFile>* current_log_file) override;
@@ -1479,6 +1489,8 @@ class DBImpl : public DB {
   // Used by WriteImpl to update bg_error_ in case of memtable insert error.
   void MemTableInsertStatusCheck(const Status& memtable_insert_status);
 
+  Status UpdateManualCompactTime(ColumnFamilyHandle* column_family);
+
 #ifndef ROCKSDB_LITE
 
   Status CompactFilesImpl(const CompactionOptions& compact_options,
@@ -2027,6 +2039,7 @@ class DBImpl : public DB {
   // flush/compaction and if it is not provided vis SnapshotChecker, we should
   // disable gc to be safe.
   const bool use_custom_gc_;
+  const bool pegasus_data_;
   // Flag to indicate that the DB instance shutdown has been initiated. This
   // different from shutting_down_ atomic in that it is set at the beginning
   // of shutdown sequence, specifically in order to prevent any background

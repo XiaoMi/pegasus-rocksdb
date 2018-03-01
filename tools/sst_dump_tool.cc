@@ -39,6 +39,40 @@
 
 #include "port/port.h"
 
+// TODO(laiyingchun): be16toh and be32toh are only called by
+// pegasus_restore_key and pegasus_restore_value use.
+#if defined(OS_MACOSX)
+  #include <libkern/OSByteOrder.h>
+  #define be16toh(x) OSSwapBigToHostInt16(x)
+  #define be32toh(x) OSSwapBigToHostInt32(x)
+#elif defined(OS_SOLARIS)
+  #include <sys/byteorder.h>
+  #define be16toh(x) BE_16(x)
+  #define be32toh(x) BE_32(x)
+#elif defined(OS_AIX)
+  #define be16toh(x) (x)
+  #define be32toh(x) (x)
+#elif defined(OS_FREEBSD) || defined(OS_OPENBSD) || defined(OS_NETBSD) || \
+    defined(OS_DRAGONFLYBSD) || defined(OS_ANDROID)
+  #if !defined(be16toh)
+  #define be16toh(x) betoh16(x)
+  #endif
+
+  #if !defined(be32toh)
+  #define be32toh(x) betoh32(x)
+  #endif
+#elif defined(OS_WIN)
+  #if BYTE_ORDER == LITTLE_ENDIAN
+  #define be16toh(x) _byteswap_ushort(x)
+  #define be32toh(x) _byteswap_ulong(x)
+  #elif BYTE_ORDER == BIG_ENDIAN
+  #define be16toh(x) (x)
+  #define be32toh(x) (x)
+  #endif
+#else
+  #include <endian.h>
+#endif
+
 namespace rocksdb {
 
 SstFileDumper::SstFileDumper(const Options& options,
@@ -335,6 +369,84 @@ Status SstFileDumper::SetOldTableOptions() {
   return Status::OK();
 }
 
+size_t escape_string(const char* src, size_t src_len, char* dest, size_t dest_len) {
+  const char* src_end = src + src_len;
+  size_t used = 0;
+  for (; src < src_end; src++) {
+    if (dest_len - used < 2)   // space for two-character escape
+      return (size_t)-1;
+    unsigned char c = *src;
+    switch (c) {
+    case '\n': dest[used++] = '\\'; dest[used++] = 'n';  break;
+    case '\r': dest[used++] = '\\'; dest[used++] = 'r';  break;
+    case '\t': dest[used++] = '\\'; dest[used++] = 't';  break;
+    case '\"': dest[used++] = '\\'; dest[used++] = '\"'; break;
+    case '\'': dest[used++] = '\\'; dest[used++] = '\''; break;
+    case '\\': dest[used++] = '\\'; dest[used++] = '\\'; break;
+    default:
+      // Note that if we emit \xNN and the src character after that is a hex
+      // digit then that digit must be escaped too to prevent it being
+      // interpreted as part of the character code by C.
+      if (c < ' ' || c > '~') {
+        if (dest_len - used < 5)   // space for four-character escape + \0
+          return (size_t)-1;
+        snprintf(dest + used, 5, "\\x%02X", c);
+        used += 4;
+      } else {
+        dest[used++] = c; break;
+      }
+    }
+  }
+  if (dest_len - used < 1)   // make sure that there is room for \0
+    return (size_t)-1;
+  dest[used] = '\0';   // doesn't count towards return value though
+  return used;
+}
+
+// T must support data() and size() method.
+template <class T>
+std::string escape_string(const T& src) {
+  const size_t dest_len = src.size() * 4 + 1; // Maximum possible expansion
+  char* dest = new char[dest_len];
+  const size_t used = escape_string(src.data(), src.size(), dest, dest_len);
+  std::string s(dest, used);
+  delete[] dest;
+  return s;
+}
+
+// T must support data() and size() method.
+template <typename T>
+void pegasus_restore_key(const T& key, std::string& hash_key, std::string& sort_key) {
+  assert(key.size() >= 2);
+  // hash_key_len is in big endian
+  uint16_t hash_key_len = be16toh(*(uint16_t*)(key.data()));
+  if (hash_key_len > 0) {
+    assert(key.size() >= (size_t)(2 + hash_key_len));
+    hash_key.assign(key.data() + 2, hash_key_len);
+  } else {
+    hash_key.clear();
+  }
+  if (key.size() > (size_t)(2 + hash_key_len)) {
+    sort_key.assign(key.data() + 2 + hash_key_len, key.size() - 2 - hash_key_len);
+  } else {
+    sort_key.clear();
+  }
+}
+
+// T must support data() and size() method.
+template <typename T>
+void pegasus_restore_value(const T& value, uint32_t& expire_ts, std::string& user_data) {
+  if (value.size() < 4)
+    return;
+  // expire_ts is in big endian
+  expire_ts = (uint32_t)be32toh(*(uint32_t*)(value.data()));
+  if (value.size() > 4) {
+    user_data.assign(value.data() + 4, value.size() - 4);
+  } else {
+    user_data.clear();
+  }
+}
+
 Status SstFileDumper::ReadSequential(bool print_kv, uint64_t read_num,
                                      bool has_from, const std::string& from_key,
                                      bool has_to, const std::string& to_key,
@@ -381,6 +493,21 @@ Status SstFileDumper::ReadSequential(bool print_kv, uint64_t read_num,
     }
 
     if (print_kv) {
+      if (options_.pegasus_data) {
+        if (ikey.user_key.size() >= 2) {
+          uint32_t expire_ts = 0;
+          std::string hash_key, sort_key, user_data;
+          pegasus_restore_key(ikey.user_key, hash_key, sort_key);
+          pegasus_restore_value(value, expire_ts, user_data);
+          std::ostringstream oss;
+          oss << "\"" << escape_string(hash_key) << "\" : \"" << escape_string(sort_key)
+              << "\" @ " << ikey.sequence << " : " << ikey.type << " => "
+              << expire_ts << " : \"" << escape_string(user_data) << "\"";
+          fprintf(stdout, "%s\n", oss.str().c_str());
+        }
+        continue;
+      }
+
       if (!decode_blob_index_ || ikey.type != kTypeBlobIndex) {
         fprintf(stdout, "%s => %s\n", ikey.DebugString(output_hex_).c_str(),
                 value.ToString(output_hex_).c_str());
@@ -443,6 +570,9 @@ void print_help() {
     --decode_blob_index
       Decode blob indexes and print them in a human-readable format during scans.
 
+    --pegasus_data
+      Whether to read Pegasus data.
+
     --from=<user_key>
       Key to start reading from when executing check|scan
 
@@ -494,6 +624,7 @@ int SSTDumpTool::Run(int argc, char** argv, Options options) {
   bool verify_checksum = false;
   bool output_hex = false;
   bool decode_blob_index = false;
+  bool pegasus_data = false;
   bool input_key_hex = false;
   bool has_from = false;
   bool has_to = false;
@@ -520,6 +651,8 @@ int SSTDumpTool::Run(int argc, char** argv, Options options) {
       output_hex = true;
     } else if (strcmp(argv[i], "--decode_blob_index") == 0) {
       decode_blob_index = true;
+    } else if (strcmp(argv[i], "--pegasus_data") == 0) {
+      pegasus_data = true;
     } else if (strcmp(argv[i], "--input_key_hex") == 0) {
       input_key_hex = true;
     } else if (sscanf(argv[i], "--read_num=%lu%c", (unsigned long*)&n, &junk) ==
@@ -658,6 +791,7 @@ int SSTDumpTool::Run(int argc, char** argv, Options options) {
       filename = std::string(dir_or_file) + "/" + filename;
     }
 
+    options.pegasus_data = pegasus_data;
     rocksdb::SstFileDumper dumper(options, filename, verify_checksum,
                                   output_hex, decode_blob_index);
     if (!dumper.getStatus().ok()) {

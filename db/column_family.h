@@ -650,7 +650,10 @@ class ColumnFamilySet {
   uint32_t GetMaxColumnFamily();
   void UpdateMaxColumnFamily(uint32_t new_max_column_family);
   size_t NumberOfColumnFamilies() const;
-
+  uint32_t GetPegasusDataVersion() const;
+  void SetPegasusDataVersion(uint32_t version);
+  uint64_t GetLastManualCompactFinishTime() const;
+  void SetLastManualCompactFinishTime(uint64_t ms);
   ColumnFamilyData* CreateColumnFamily(const std::string& name, uint32_t id,
                                        Version* dummy_version,
                                        const ColumnFamilyOptions& options);
@@ -681,6 +684,8 @@ class ColumnFamilySet {
   std::unordered_map<uint32_t, ColumnFamilyData*> column_family_data_;
 
   uint32_t max_column_family_;
+  uint32_t pegasus_data_version_;
+  uint64_t last_manual_compact_finish_time_;
   ColumnFamilyData* dummy_cfd_;
   // We don't hold the refcount here, since default column family always exists
   // We are also not responsible for cleaning up default_cfd_cache_. This is

@@ -682,6 +682,19 @@ class Version {
 
   const MutableCFOptions& GetMutableCFOptions() { return mutable_cf_options_; }
 
+  void GetLastFlushSeqDecree(SequenceNumber* sequence, uint64_t* decree) const {
+    *sequence = last_flush_sequence_;
+    *decree = last_flush_decree_;
+  }
+
+  void UpdateLastFlushSeqDecreeIfNeeded(SequenceNumber sequence, uint64_t decree) {
+    if (sequence > last_flush_sequence_) {
+      assert(decree >= last_flush_decree_);
+      last_flush_sequence_ = sequence;
+      last_flush_decree_ = decree;
+    }
+  }
+
  private:
   Env* env_;
   friend class ReactiveVersionSet;
@@ -729,6 +742,9 @@ class Version {
   Version* next_;               // Next version in linked list
   Version* prev_;               // Previous version in linked list
   int refs_;                    // Number of live refs to this version
+  // last sequence/decree flushed to sstables.
+  SequenceNumber last_flush_sequence_;
+  uint64_t last_flush_decree_;
   const EnvOptions env_options_;
   const MutableCFOptions mutable_cf_options_;
 
@@ -943,6 +959,16 @@ class VersionSet {
     // Last visible sequence must always be less than last written seq
     assert(!db_options_->two_write_queues || s <= last_allocated_sequence_);
     last_sequence_.store(s, std::memory_order_release);
+  }
+
+  // Return the last flush sequence number of default column family.
+  uint64_t LastFlushSequence() const {
+    assert(db_options_->pegasus_data);
+    assert(column_family_set_->NumberOfColumnFamilies() == 1u);
+    SequenceNumber seq;
+    uint64_t d;
+    column_family_set_->GetDefault()->current()->GetLastFlushSeqDecree(&seq, &d);
+    return seq;
   }
 
   // Note: memory_order_release must be sufficient

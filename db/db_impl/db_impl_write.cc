@@ -100,6 +100,10 @@ Status DBImpl::WriteImpl(const WriteOptions& write_options,
   assert(!WriteBatchInternal::IsLatestPersistentState(my_batch) ||
          disable_memtable);
 
+  // ATTENTION(qinzuoyan): always only use default column family under
+  // replication framework.
+  assert(!pegasus_data_ || single_column_family_mode_);
+
   Status status;
   if (write_options.low_pri) {
     status = ThrottleLowPriWritesIfNeeded(write_options, my_batch);
@@ -108,6 +112,8 @@ Status DBImpl::WriteImpl(const WriteOptions& write_options,
     }
   }
 
+  // ATTENTION(laiyingchun): disable_memtable is always false in pegasus
+  assert(!pegasus_data_ || !disable_memtable);
   if (two_write_queues_ && disable_memtable) {
     AssignOrder assign_order =
         seq_per_batch_ ? kDoAssignOrder : kDontAssignOrder;
@@ -144,6 +150,8 @@ Status DBImpl::WriteImpl(const WriteOptions& write_options,
     return status;
   }
 
+  // ATTENTION(laiyingchun): enable_pipelined_write is always false in pegasus
+  assert(!pegasus_data_ || !immutable_db_options_.enable_pipelined_write);
   if (immutable_db_options_.enable_pipelined_write) {
     return PipelinedWriteImpl(write_options, my_batch, callback, log_used,
                               log_ref, disable_memtable, seq_used);
@@ -160,6 +168,10 @@ Status DBImpl::WriteImpl(const WriteOptions& write_options,
   StopWatch write_sw(env_, immutable_db_options_.statistics.get(), DB_WRITE);
 
   write_thread_.JoinBatchGroup(&w);
+  // ATTENTION(qinzuoyan): because write is always applied in single thread
+  // under replication framework, so we must be the only write batch and
+  // must be STATE_GROUP_LEADER.
+  assert(!pegasus_data_ || w.state == WriteThread::STATE_GROUP_LEADER);
   if (w.state == WriteThread::STATE_PARALLEL_MEMTABLE_WRITER) {
     // we are a non-leader in a parallel group
 
@@ -249,6 +261,10 @@ Status DBImpl::WriteImpl(const WriteOptions& write_options,
       write_thread_.EnterAsBatchGroupLeader(&w, &write_group);
 
   if (status.ok()) {
+    // ATTENTION(qinzuoyan): because write is always applied in single thread
+    // under replication framework, so we must be the only write batch.
+    assert(!pegasus_data_ || write_group.size == 1);
+
     // Rules for when we can update the memtable concurrently
     // 1. supported by memtable
     // 2. Puts are not okay if inplace_update_support
@@ -280,6 +296,11 @@ Status DBImpl::WriteImpl(const WriteOptions& write_options,
         }
       }
     }
+    // ATTENTION(qinzuoyan): under replication framework, batch should not be empty.
+    assert(!pegasus_data_ || total_count > 0);
+    // ATTENTION(laiyingchun): seq_per_batch_ should always be false as default value.
+    assert(!pegasus_data_ || !seq_per_batch_);
+
     // Note about seq_per_batch_: either disableWAL is set for the entire write
     // group or not. In either case we inc seq for each write batch with no
     // failed callback. This means that there could be a batch with
@@ -373,6 +394,8 @@ Status DBImpl::WriteImpl(const WriteOptions& write_options,
     if (status.ok()) {
       PERF_TIMER_GUARD(write_memtable_time);
 
+      // ATTENTION(laiyingchun): parallel should always be false because write_group.size == 1.
+      assert(!pegasus_data_ || !parallel);
       if (!parallel) {
         // w.sequence will be set inside InsertInto
         w.status = WriteBatchInternal::InsertInto(
@@ -380,7 +403,7 @@ Status DBImpl::WriteImpl(const WriteOptions& write_options,
             &flush_scheduler_, &trim_history_scheduler_,
             write_options.ignore_missing_column_families,
             0 /*recovery_log_number*/, this, parallel, seq_per_batch_,
-            batch_per_txn_);
+            batch_per_txn_, write_options.given_decree, pegasus_data_);
       } else {
         write_group.last_sequence = last_sequence;
         write_thread_.LaunchParallelMemTableWriters(&write_group);
