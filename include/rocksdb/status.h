@@ -58,7 +58,9 @@ class Status {
     kAborted = 10,
     kBusy = 11,
     kExpired = 12,
-    kTryAgain = 13
+    kTryAgain = 13,
+
+    kNoNeedOperate = 101,
   };
 
   Code code() const { return code_; }
@@ -172,6 +174,11 @@ class Status {
     return Status(kAborted, kMemoryLimit, msg, msg2);
   }
 
+  static Status NoNeedOperate(SubCode msg = kNone) { return Status(kNoNeedOperate, msg); }
+  static Status NoNeedOperate(const Slice& msg, const Slice& msg2 = Slice()) {
+    return Status(kNoNeedOperate, msg, msg2);
+  }
+
   // Returns true iff the status indicates success.
   bool ok() const { return code() == kOk; }
 
@@ -220,6 +227,10 @@ class Status {
   // This usually means that the operation failed, but may succeed if
   // re-attempted.
   bool IsTryAgain() const { return code() == kTryAgain; }
+
+  // Returns true iff the status indicates a NoNeedOperate error.
+  // This usually means that the operation is not need to do.
+  bool IsNoNeedOperate() const { return code() == kNoNeedOperate; }
 
   // Returns true iff the status indicates a NoSpace error
   // This is caused by an I/O error returning the specific "out of space"

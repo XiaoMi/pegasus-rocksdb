@@ -140,6 +140,56 @@ Status DBImpl::GetLiveFiles(std::vector<std::string>& ret,
   return Status::OK();
 }
 
+Status DBImpl::GetLiveFilesQuick(std::vector<std::string>& ret,
+                                 uint64_t* manifest_file_size,
+                                 SequenceNumber* last_sequence,
+                                 uint64_t* last_decree) {
+  *manifest_file_size = 0;
+  *last_sequence = 0;
+  *last_decree = 0;
+
+  mutex_.Lock();
+
+  // ATTENTION(qinzuoyan): only use default column family.
+  assert(versions_->GetColumnFamilySet()->NumberOfColumnFamilies() == 1u);
+
+  // Make a set of all of the live *.sst files
+  std::vector<FileDescriptor> live;
+  for (auto cfd : *versions_->GetColumnFamilySet()) {
+    if (cfd->IsDropped()) {
+      continue;
+    }
+    cfd->current()->AddLiveFiles(&live);
+    // get last sequence/decree
+    SequenceNumber seq;
+    uint64_t d;
+    cfd->current()->GetLastFlushSeqDecree(&seq, &d);
+    if (seq > *last_sequence) {
+      assert(d >= *last_decree);
+      *last_sequence = seq;
+      *last_decree = d;
+    }
+  }
+
+  ret.clear();
+  ret.reserve(live.size() + 2); //*.sst + CURRENT + MANIFEST
+
+  // create names of the live files. The names are not absolute
+  // paths, instead they are relative to dbname_;
+  for (auto live_file : live) {
+    ret.push_back(MakeTableFileName("", live_file.GetNumber()));
+  }
+
+  ret.push_back(CurrentFileName(""));
+  ret.push_back(DescriptorFileName("", versions_->manifest_file_number()));
+
+  // find length of manifest file while holding the mutex lock
+  *manifest_file_size = versions_->manifest_file_size();
+
+  mutex_.Unlock();
+  return Status::OK();
+}
+
 Status DBImpl::GetSortedWalFiles(VectorLogPtr& files) {
   return wal_manager_.GetSortedWalFiles(files);
 }

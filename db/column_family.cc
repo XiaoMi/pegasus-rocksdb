@@ -1006,6 +1006,7 @@ ColumnFamilySet::ColumnFamilySet(const std::string& dbname,
                                  WriteBufferManager* write_buffer_manager,
                                  WriteController* write_controller)
     : max_column_family_(0),
+      value_schema_version_(db_options->default_value_schema_version),
       dummy_cfd_(new ColumnFamilyData(0, "", nullptr, nullptr, nullptr,
                                       ColumnFamilyOptions(), *db_options,
                                       env_options, nullptr)),
@@ -1070,6 +1071,12 @@ void ColumnFamilySet::UpdateMaxColumnFamily(uint32_t new_max_column_family) {
 
 size_t ColumnFamilySet::NumberOfColumnFamilies() const {
   return column_families_.size();
+}
+
+uint32_t ColumnFamilySet::GetValueSchemaVersion() { return value_schema_version_; }
+
+void ColumnFamilySet::SetValueSchemaVersion(uint32_t version) {
+    value_schema_version_ = version;
 }
 
 // under a DB mutex AND write thread

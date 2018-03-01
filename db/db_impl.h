@@ -231,6 +231,10 @@ class DBImpl : public DB {
   bool HasActiveSnapshotInRange(SequenceNumber lower_bound,
                                 SequenceNumber upper_bound);
 
+  virtual uint64_t GetLastFlushedDecree() override;
+
+  virtual uint32_t GetValueSchemaVersion() override;
+
 #ifndef ROCKSDB_LITE
   using DB::ResetStats;
   virtual Status ResetStats() override;
@@ -241,6 +245,10 @@ class DBImpl : public DB {
   virtual Status GetLiveFiles(std::vector<std::string>&,
                               uint64_t* manifest_file_size,
                               bool flush_memtable = true) override;
+  virtual Status GetLiveFilesQuick(std::vector<std::string>& ret,
+                                   uint64_t* manifest_file_size,
+                                   SequenceNumber* last_sequence,
+                                   uint64_t* last_decree) override;
   virtual Status GetSortedWalFiles(VectorLogPtr& files) override;
 
   virtual Status GetUpdatesSince(

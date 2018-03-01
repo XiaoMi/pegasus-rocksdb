@@ -199,6 +199,37 @@ class VersionEdit {
     max_column_family_ = max_column_family;
   }
 
+  void SetValueSchemaVersion(uint32_t value_schema_version) {
+    has_value_schema_version_ = true;
+    value_schema_version_ = value_schema_version;
+  }
+
+  bool HasLastSequence() const {
+    return has_last_sequence_;
+  }
+
+  SequenceNumber GetLastSequence() const {
+    return last_sequence_;
+  }
+
+  bool HasLastFlushSeqDecree() const {
+    return has_last_flush_seq_decree_;
+  }
+
+  void GetLastFlushSeqDecree(SequenceNumber* sequence, uint64_t* decree) {
+    *sequence = last_flush_sequence_;
+    *decree = last_flush_decree_;
+  }
+
+  void UpdateLastFlushSeqDecree(SequenceNumber sequence, uint64_t decree) {
+    if (sequence > last_flush_sequence_) {
+      assert(decree >= last_flush_decree_);
+      last_flush_sequence_ = sequence;
+      last_flush_decree_ = decree;
+      has_last_flush_seq_decree_ = true;
+    }
+  }
+
   // Add the specified file at the specified number.
   // REQUIRES: This version has not been saved (see VersionSet::SaveTo)
   // REQUIRES: "smallest" and "largest" are smallest and largest keys in file
@@ -284,13 +315,20 @@ class VersionEdit {
   uint64_t prev_log_number_;
   uint64_t next_file_number_;
   uint32_t max_column_family_;
+  uint32_t value_schema_version_;
   SequenceNumber last_sequence_;
+  // Used to mark the last sequence/decree of flushed memtables.
+  SequenceNumber last_flush_sequence_;
+  uint64_t last_flush_decree_;
+
   bool has_comparator_;
   bool has_log_number_;
   bool has_prev_log_number_;
   bool has_next_file_number_;
   bool has_last_sequence_;
+  bool has_last_flush_seq_decree_;
   bool has_max_column_family_;
+  bool has_value_schema_version_;
 
   DeletedFileSet deleted_files_;
   std::vector<std::pair<int, FileMetaData>> new_files_;

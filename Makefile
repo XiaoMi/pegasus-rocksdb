@@ -43,6 +43,22 @@ quoted_perl_command = $(subst ','\'',$(perl_command))
 # Set the default DEBUG_LEVEL to 1
 DEBUG_LEVEL?=1
 
+ifeq ($(MAKECMDGOALS),static_lib_debug)
+	DEBUG_LEVEL=2
+endif
+
+ifeq ($(MAKECMDGOALS),static_lib_release)
+	DEBUG_LEVEL=0
+endif
+
+ifeq ($(MAKECMDGOALS),pegasus_bench_debug)
+	DEBUG_LEVEL=2
+endif
+
+ifeq ($(MAKECMDGOALS),pegasus_bench_release)
+	DEBUG_LEVEL=0
+endif
+
 ifeq ($(MAKECMDGOALS),dbg)
 	DEBUG_LEVEL=2
 endif
@@ -301,8 +317,8 @@ LDFLAGS += $(LUA_LIB)
 endif
 
 
-CFLAGS += $(WARNING_FLAGS) -I. -I./include $(PLATFORM_CCFLAGS) $(OPT)
-CXXFLAGS += $(WARNING_FLAGS) -I. -I./include $(PLATFORM_CXXFLAGS) $(OPT) -Woverloaded-virtual -Wnon-virtual-dtor -Wno-missing-field-initializers
+CFLAGS += $(WARNING_FLAGS) -I. -I./include -I../src/include $(PLATFORM_CCFLAGS) $(OPT)
+CXXFLAGS += $(WARNING_FLAGS) -I. -I./include -I../src/include $(PLATFORM_CXXFLAGS) $(OPT) -Woverloaded-virtual -Wnon-virtual-dtor -Wno-missing-field-initializers
 
 LDFLAGS += $(PLATFORM_LDFLAGS)
 
@@ -628,6 +644,10 @@ endif  # PLATFORM_SHARED_EXT
 	dbg rocksdbjavastatic rocksdbjava install install-static install-shared uninstall \
 	analyze tools tools_lib
 
+static_lib_debug: $(LIBRARY)
+static_lib_release: $(LIBRARY)
+pegasus_bench_debug: pegasus_bench
+pegasus_bench_release: pegasus_bench
 
 all: $(LIBRARY) $(BENCHMARKS) tools tools_lib test_libs $(TESTS)
 
@@ -1000,6 +1020,9 @@ librocksdb_env_basic_test.a: env/env_basic_test.o $(LIBOBJECTS) $(TESTHARNESS)
 
 db_bench: tools/db_bench.o $(BENCHTOOLOBJECTS)
 	$(AM_LINK)
+
+pegasus_bench: db/pegasus_bench.o $(LIBOBJECTS) $(TESTUTIL)
+	$(AM_LINK) -L${DSN_ROOT}/lib -L${DSN_THIRDPARTY_ROOT}/lib -L${BOOST_ROOT}/lib -lpegasus_client_static -lcrypto -ldl -laio -lboost_system -lboost_filesystem -Wl,-rpath,.
 
 cache_bench: cache/cache_bench.o $(LIBOBJECTS) $(TESTUTIL)
 	$(AM_LINK)

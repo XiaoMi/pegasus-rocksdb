@@ -80,6 +80,7 @@ struct ImmutableDBOptions {
   bool concurrent_prepare;
   bool manual_wal_flush;
   bool seq_per_batch;
+  uint32_t default_value_schema_version;
 };
 
 struct MutableDBOptions {

@@ -368,6 +368,18 @@ class MemTable {
     return oldest_key_time_.load(std::memory_order_relaxed);
   }
 
+  void GetLastSeqDecree(SequenceNumber* sequence, uint64_t* decree) {
+    *sequence = last_sequence_;
+    *decree = last_decree_;
+  }
+
+  void UpdateLastSeqDecree(SequenceNumber sequence, uint64_t decree) {
+    assert(sequence > last_sequence_); // sequence should not be shared
+    assert(decree >= last_decree_); // decree may be shared
+    last_sequence_ = sequence;
+    last_decree_ = decree;
+  }
+
  private:
   enum FlushStateEnum { FLUSH_NOT_REQUESTED, FLUSH_REQUESTED, FLUSH_SCHEDULED };
 
@@ -413,6 +425,10 @@ class MemTable {
 
   // The log files earlier than this number can be deleted.
   uint64_t mem_next_logfile_number_;
+
+  // The last sequence/decree writen into the memtable.
+  SequenceNumber last_sequence_;
+  uint64_t last_decree_;
 
   // the earliest log containing a prepared section
   // which has been inserted into this memtable.

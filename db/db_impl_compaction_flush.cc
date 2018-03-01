@@ -951,22 +951,24 @@ Status DBImpl::FlushMemTable(ColumnFamilyData* cfd,
     if (cfd->imm()->NumNotFlushed() == 0 && cfd->mem()->IsEmpty() &&
         cached_recoverable_state_empty_.load()) {
       // Nothing to flush
-      return Status::OK();
+      return Status::NoNeedOperate();
     }
 
-    WriteThread::Writer w;
-    if (!writes_stopped) {
-      write_thread_.EnterUnbatched(&w, &mutex_);
+    if (!cfd->mem()->IsEmpty()) {
+      WriteThread::Writer w;
+      if (!writes_stopped) {
+        write_thread_.EnterUnbatched(&w, &mutex_);
+      }
+
+      // SwitchMemtable() will release and reacquire mutex during execution
+      s = SwitchMemtable(cfd, &context);
+
+      if (!writes_stopped) {
+        write_thread_.ExitUnbatched(&w);
+      }
+
+      cfd->imm()->FlushRequested();
     }
-
-    // SwitchMemtable() will release and reacquire mutex during execution
-    s = SwitchMemtable(cfd, &context);
-
-    if (!writes_stopped) {
-      write_thread_.ExitUnbatched(&w);
-    }
-
-    cfd->imm()->FlushRequested();
 
     // schedule flush
     SchedulePendingFlush(cfd);

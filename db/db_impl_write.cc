@@ -118,7 +118,8 @@ Status DBImpl::WriteImpl(const WriteOptions& write_options,
       w.status = WriteBatchInternal::InsertInto(
           &w, w.sequence, &column_family_memtables, &flush_scheduler_,
           write_options.ignore_missing_column_families, 0 /*log_number*/, this,
-          true /*concurrent_memtable_writes*/, seq_per_batch_);
+          true /*concurrent_memtable_writes*/, seq_per_batch_,
+          write_options.given_decree);
     }
 
     if (write_thread_.CompleteParallelMemTableWriter(&w)) {
@@ -210,6 +211,7 @@ Status DBImpl::WriteImpl(const WriteOptions& write_options,
     size_t seq_inc = seq_per_batch_ ? write_group.size : total_count;
 
     const bool concurrent_update = concurrent_prepare_;
+
     // Update stats while we are an exclusive group leader, so we know
     // that nobody else can be writing to these particular stats.
     // We're optimistic, updating the stats before we successfully
@@ -256,7 +258,8 @@ Status DBImpl::WriteImpl(const WriteOptions& write_options,
       }
     }
     assert(last_sequence != kMaxSequenceNumber);
-    const SequenceNumber current_sequence = last_sequence + 1;
+    const SequenceNumber current_sequence = write_options.given_sequence_number == 0 ?
+                                            (last_sequence + 1) : write_options.given_sequence_number;
     last_sequence += seq_inc;
 
     if (status.ok()) {
@@ -266,7 +269,8 @@ Status DBImpl::WriteImpl(const WriteOptions& write_options,
         w.status = WriteBatchInternal::InsertInto(
             write_group, current_sequence, column_family_memtables_.get(),
             &flush_scheduler_, write_options.ignore_missing_column_families,
-            0 /*recovery_log_number*/, this, parallel, seq_per_batch_);
+            0 /*recovery_log_number*/, this, parallel, seq_per_batch_,
+            write_options.given_decree);
       } else {
         SequenceNumber next_sequence = current_sequence;
         for (auto* writer : write_group) {
@@ -292,7 +296,8 @@ Status DBImpl::WriteImpl(const WriteOptions& write_options,
           w.status = WriteBatchInternal::InsertInto(
               &w, w.sequence, &column_family_memtables, &flush_scheduler_,
               write_options.ignore_missing_column_families, 0 /*log_number*/,
-              this, true /*concurrent_memtable_writes*/, seq_per_batch_);
+              this, true /*concurrent_memtable_writes*/, seq_per_batch_,
+              write_options.given_decree);
         }
       }
       if (seq_used != nullptr) {
@@ -368,8 +373,8 @@ Status DBImpl::PipelinedWriteImpl(const WriteOptions& write_options,
     // This can set non-OK status if callback fail.
     last_batch_group_size_ =
         write_thread_.EnterAsBatchGroupLeader(&w, &wal_write_group);
-    const SequenceNumber current_sequence =
-        write_thread_.UpdateLastSequence(versions_->LastSequence()) + 1;
+    const SequenceNumber current_sequence = write_options.given_sequence_number == 0 ?
+        write_thread_.UpdateLastSequence(versions_->LastSequence()) + 1 : write_options.given_sequence_number;
     size_t total_count = 0;
     size_t total_byte_size = 0;
 
@@ -440,7 +445,8 @@ Status DBImpl::PipelinedWriteImpl(const WriteOptions& write_options,
       memtable_write_group.status = WriteBatchInternal::InsertInto(
           memtable_write_group, w.sequence, column_family_memtables_.get(),
           &flush_scheduler_, write_options.ignore_missing_column_families,
-          0 /*log_number*/, this, seq_per_batch_);
+          0 /*log_number*/, this, seq_per_batch_,
+          false /*seq_per_batch*/, write_options.given_decree);
       versions_->SetLastSequence(memtable_write_group.last_sequence);
       write_thread_.ExitAsMemTableWriter(&w, memtable_write_group);
     }
@@ -453,7 +459,8 @@ Status DBImpl::PipelinedWriteImpl(const WriteOptions& write_options,
     w.status = WriteBatchInternal::InsertInto(
         &w, w.sequence, &column_family_memtables, &flush_scheduler_,
         write_options.ignore_missing_column_families, 0 /*log_number*/, this,
-        true /*concurrent_memtable_writes*/);
+        true /*concurrent_memtable_writes*/,
+        false /*seq_per_batch*/, write_options.given_decree);
     if (write_thread_.CompleteParallelMemTableWriter(&w)) {
       MemTableInsertStatusCheck(w.status);
       versions_->SetLastSequence(w.write_group->last_sequence);
