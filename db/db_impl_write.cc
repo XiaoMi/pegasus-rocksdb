@@ -79,6 +79,10 @@ Status DBImpl::WriteImpl(const WriteOptions& write_options,
   assert(!WriteBatchInternal::IsLatestPersistentState(my_batch) ||
          disable_memtable);
 
+  // ATTENTION(qinzuoyan): always only use default column family under
+  // replication framework.
+  assert(single_column_family_mode_);
+
   Status status;
   if (write_options.low_pri) {
     status = ThrottleLowPriWritesIfNeeded(write_options, my_batch);
@@ -87,11 +91,15 @@ Status DBImpl::WriteImpl(const WriteOptions& write_options,
     }
   }
 
+  // ATTENTION(laiyingchun): disable_memtable is always false in pegasus
+  assert(!disable_memtable);
   if (concurrent_prepare_ && disable_memtable) {
     return WriteImplWALOnly(write_options, my_batch, callback, log_used,
                             log_ref, seq_used);
   }
 
+  // ATTENTION(laiyingchun): enable_pipelined_write is always false in pegasus
+  assert(!immutable_db_options_.enable_pipelined_write);
   if (immutable_db_options_.enable_pipelined_write) {
     return PipelinedWriteImpl(write_options, my_batch, callback, log_used,
                               log_ref, disable_memtable, seq_used);
@@ -108,6 +116,10 @@ Status DBImpl::WriteImpl(const WriteOptions& write_options,
   StopWatch write_sw(env_, immutable_db_options_.statistics.get(), DB_WRITE);
 
   write_thread_.JoinBatchGroup(&w);
+  // ATTENTION(qinzuoyan): because write is always applied in single thread
+  // under replication framework, so we must be the only write batch and
+  // must be STATE_GROUP_LEADER.
+  assert(w.state == WriteThread::STATE_GROUP_LEADER);
   if (w.state == WriteThread::STATE_PARALLEL_MEMTABLE_WRITER) {
     // we are a non-leader in a parallel group
     PERF_TIMER_GUARD(write_memtable_time);
@@ -118,8 +130,7 @@ Status DBImpl::WriteImpl(const WriteOptions& write_options,
       w.status = WriteBatchInternal::InsertInto(
           &w, w.sequence, &column_family_memtables, &flush_scheduler_,
           write_options.ignore_missing_column_families, 0 /*log_number*/, this,
-          true /*concurrent_memtable_writes*/, seq_per_batch_,
-          write_options.given_decree);
+          true /*concurrent_memtable_writes*/, seq_per_batch_);
     }
 
     if (write_thread_.CompleteParallelMemTableWriter(&w)) {
@@ -182,6 +193,10 @@ Status DBImpl::WriteImpl(const WriteOptions& write_options,
       write_thread_.EnterAsBatchGroupLeader(&w, &write_group);
 
   if (status.ok()) {
+    // ATTENTION(qinzuoyan): because write is always applied in single thread
+    // under replication framework, so we must be the only write batch.
+    assert(write_group.size == 1);
+
     // Rules for when we can update the memtable concurrently
     // 1. supported by memtable
     // 2. Puts are not okay if inplace_update_support
@@ -208,6 +223,11 @@ Status DBImpl::WriteImpl(const WriteOptions& write_options,
             total_byte_size, WriteBatchInternal::ByteSize(writer->batch));
       }
     }
+
+    // ATTENTION(qinzuoyan): under replication framework, batch should not be empty.
+    assert(total_count > 0);
+    // ATTENTION(laiyingchun): seq_per_batch_ should always be false as default value.
+    assert(!seq_per_batch_);
     size_t seq_inc = seq_per_batch_ ? write_group.size : total_count;
 
     const bool concurrent_update = concurrent_prepare_;
@@ -260,11 +280,13 @@ Status DBImpl::WriteImpl(const WriteOptions& write_options,
     assert(last_sequence != kMaxSequenceNumber);
     const SequenceNumber current_sequence = write_options.given_sequence_number == 0 ?
                                             (last_sequence + 1) : write_options.given_sequence_number;
-    last_sequence += seq_inc;
+    last_sequence = current_sequence + seq_inc - 1;
 
     if (status.ok()) {
       PERF_TIMER_GUARD(write_memtable_time);
 
+      // ATTENTION(laiyingchun): parallel should always be false because write_group.size == 1.
+      assert(!parallel);
       if (!parallel) {
         w.status = WriteBatchInternal::InsertInto(
             write_group, current_sequence, column_family_memtables_.get(),
@@ -296,8 +318,7 @@ Status DBImpl::WriteImpl(const WriteOptions& write_options,
           w.status = WriteBatchInternal::InsertInto(
               &w, w.sequence, &column_family_memtables, &flush_scheduler_,
               write_options.ignore_missing_column_families, 0 /*log_number*/,
-              this, true /*concurrent_memtable_writes*/, seq_per_batch_,
-              write_options.given_decree);
+              this, true /*concurrent_memtable_writes*/, seq_per_batch_);
         }
       }
       if (seq_used != nullptr) {
@@ -373,8 +394,8 @@ Status DBImpl::PipelinedWriteImpl(const WriteOptions& write_options,
     // This can set non-OK status if callback fail.
     last_batch_group_size_ =
         write_thread_.EnterAsBatchGroupLeader(&w, &wal_write_group);
-    const SequenceNumber current_sequence = write_options.given_sequence_number == 0 ?
-        write_thread_.UpdateLastSequence(versions_->LastSequence()) + 1 : write_options.given_sequence_number;
+    const SequenceNumber current_sequence =
+        write_thread_.UpdateLastSequence(versions_->LastSequence()) + 1;
     size_t total_count = 0;
     size_t total_byte_size = 0;
 
@@ -445,8 +466,7 @@ Status DBImpl::PipelinedWriteImpl(const WriteOptions& write_options,
       memtable_write_group.status = WriteBatchInternal::InsertInto(
           memtable_write_group, w.sequence, column_family_memtables_.get(),
           &flush_scheduler_, write_options.ignore_missing_column_families,
-          0 /*log_number*/, this, seq_per_batch_,
-          false /*seq_per_batch*/, write_options.given_decree);
+          0 /*log_number*/, this, seq_per_batch_);
       versions_->SetLastSequence(memtable_write_group.last_sequence);
       write_thread_.ExitAsMemTableWriter(&w, memtable_write_group);
     }
@@ -459,8 +479,7 @@ Status DBImpl::PipelinedWriteImpl(const WriteOptions& write_options,
     w.status = WriteBatchInternal::InsertInto(
         &w, w.sequence, &column_family_memtables, &flush_scheduler_,
         write_options.ignore_missing_column_families, 0 /*log_number*/, this,
-        true /*concurrent_memtable_writes*/,
-        false /*seq_per_batch*/, write_options.given_decree);
+        true /*concurrent_memtable_writes*/);
     if (write_thread_.CompleteParallelMemTableWriter(&w)) {
       MemTableInsertStatusCheck(w.status);
       versions_->SetLastSequence(w.write_group->last_sequence);

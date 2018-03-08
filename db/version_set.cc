@@ -3158,7 +3158,7 @@ Status VersionSet::Recover(
     // for pegasus, we have disabled WAL, so we need to reset last_sequence to
     // last_flush_sequence
     last_sequence_ = LastFlushSequence();
-    Log(InfoLogLevel::INFO_LEVEL, db_options_->info_log,
+    ROCKS_LOG_INFO(db_options_->info_log,
         "Reset last_sequence to last_flush_sequence: %lu",
         (unsigned long)last_sequence_);
 
@@ -3547,7 +3547,7 @@ Status VersionSet::DumpManifest(Options& options, std::string& dscname,
     auto& p = last_flush_seq_decree_map[0]; // default column family
     printf(
         "next_file_number %lu last_sequence %lu last_flush_sequence %lu "
-        "last_flush_decree %lu  prev_log_number %lu max_column_family %u value_schema_version %u\n",
+        "last_flush_decree %lu prev_log_number %lu max_column_family %u value_schema_version %u\n",
         (unsigned long)next_file_number_.load(), (unsigned long)last_sequence,
         (unsigned long)p.first, (unsigned long)p.second, (unsigned long)previous_log_number,
         column_family_set_->GetMaxColumnFamily(), column_family_set_->GetValueSchemaVersion());

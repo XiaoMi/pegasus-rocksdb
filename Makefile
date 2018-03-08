@@ -556,12 +556,12 @@ BENCHMARKS = db_bench table_reader_bench cache_bench memtablerep_bench column_aw
 
 # if user didn't config LIBNAME, set the default
 ifeq ($(LIBNAME),)
-# we should only run rocksdb in production with DEBUG_LEVEL 0
-ifeq ($(DEBUG_LEVEL),0)
+## we should only run rocksdb in production with DEBUG_LEVEL 0
+#ifeq ($(DEBUG_LEVEL),0)
         LIBNAME=librocksdb
-else
-        LIBNAME=librocksdb_debug
-endif
+#else
+#        LIBNAME=librocksdb_debug
+#endif
 endif
 LIBRARY = ${LIBNAME}.a
 TOOLS_LIBRARY = ${LIBNAME}_tools.a

@@ -175,7 +175,7 @@ class WriteBatchInternal {
                            SequenceNumber* next_seq = nullptr,
                            bool* has_valid_writes = nullptr,
                            bool seq_per_batch = false,
-                           uint64_t decree = 0);                                          // TODO code has changed much
+                           uint64_t decree = 0);
 
   static Status InsertInto(WriteThread::Writer* writer, SequenceNumber sequence,
                            ColumnFamilyMemTables* memtables,

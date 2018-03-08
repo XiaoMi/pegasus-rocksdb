@@ -350,7 +350,7 @@ static Status ModifyManifestFileLastSeq(Env* env, const DBOptions& db_options,
     unique_ptr<WritableFileWriter> writer(
         new WritableFileWriter(std::move(file), opt_env_opts));
     file_writer.reset(new log::Writer(std::move(writer),
-                                      1 /*log_number*/,
+                                      0 /*log_number. log_number is useless when recycle_log_files is false.*/,
                                       false /*recycle_log_files*/,
                                       false /*manual_flush*/));
   }
@@ -358,9 +358,9 @@ static Status ModifyManifestFileLastSeq(Env* env, const DBOptions& db_options,
   {
     LogReporter reporter;
     reporter.status = &s;
-    log::Reader reader(db_options.info_log,
+    log::Reader reader(db_options.info_log /*actually not used in Reader.*/,
                        std::move(file_reader), &reporter, true /*checksum*/,
-                       0 /*initial_offset*/, 1 /*log_num*/);
+                       0 /*initial_offset*/, 0 /*log_num. log_number is useless when recycle_log_files is false in writer.*/);
     Slice record;
     std::string scratch;
     while (reader.ReadRecord(&record, &scratch) && s.ok()) {
@@ -469,8 +469,8 @@ Status CheckpointImpl::CreateCheckpointQuick(const std::string& checkpoint_dir,
       Log(db_->GetOptions().info_log, "Copying %s", src_fname.c_str());
       s = CopyFile(db_->GetEnv(), db_->GetName() + src_fname,
                    full_private_path + src_fname,
-                   0,    // size: 0 means copy everything
-                   (type == kDescriptorFile) ? manifest_file_size : 0);
+                   (type == kDescriptorFile) ? manifest_file_size : 0,
+                   false /*use_fsync*/);
     }
     if (type == kDescriptorFile) {
       manifest_file_path = full_private_path + src_fname;

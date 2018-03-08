@@ -928,7 +928,7 @@ class MemTableInserter : public WriteBatch::Handler {
                    bool ignore_missing_column_families,
                    uint64_t recovering_log_number, DB* db,
                    bool concurrent_memtable_writes,
-                   uint64_t decree,                 // TODO caller should change
+                   uint64_t decree,
                    bool* has_valid_writes = nullptr, bool seq_per_batch = false)
       : sequence_(_sequence),
         cf_mems_(cf_mems),
