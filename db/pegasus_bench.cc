@@ -5507,14 +5507,11 @@ int db_bench_tool(int argc, char** argv) {
   return 0;
 }
 
-#ifndef GFLAGS
+int main(int argc, char** argv) { return db_bench_tool(argc, argv); }
+#else
 #include <cstdio>
 int main() {
   fprintf(stderr, "Please install gflags to run rocksdb tools\n");
   return 1;
 }
-#else
-int main(int argc, char** argv) { return db_bench_tool(argc, argv); }
 #endif  // GFLAGS
-
-#endif
