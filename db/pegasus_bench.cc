@@ -4240,7 +4240,7 @@ void VerifyDBFromDB(std::string& truth_db_name) {
     }
 
     char msg[100];
-    snprintf(msg, sizeof(msg), "(%" PRIu64 " of %" PRIu64 " found)\n",
+    snprintf(msg, sizeof(msg), "(%" PRIu64 " of %" PRIu64 " found)",
              found, read);
 
     thread->stats.AddBytes(bytes);
