@@ -356,6 +356,9 @@ class WriteBatch : public WriteBatchBase {
  protected:
   std::string rep_;  // See comment in write_batch.cc for the format of rep_
 
+  bool use_shared_sequence_number_; // when seq is given and shared by multiple write ops,
+                                    // see more comments for WriteOptions
+
   // Intentionally copyable
 };
 

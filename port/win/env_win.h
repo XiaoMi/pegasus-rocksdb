@@ -132,6 +132,10 @@ public:
   virtual Status GetFileModificationTime(const std::string& fname,
     uint64_t* file_mtime);
 
+  static BOOL IsDots(const char* str);
+
+  static BOOL DeleteDirectory(const char* sPath);
+
   virtual Status RenameFile(const std::string& src,
     const std::string& target);
 
@@ -241,6 +245,10 @@ public:
 
   Status GetFileModificationTime(const std::string& fname,
     uint64_t* file_mtime) override;
+
+  BOOL IsDots(const char* str);
+
+  BOOL DeleteDirectory(const char* sPath);
 
   Status RenameFile(const std::string& src,
     const std::string& target) override;

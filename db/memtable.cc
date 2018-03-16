@@ -91,6 +91,8 @@ MemTable::MemTable(const InternalKeyComparator& cmp,
       earliest_seqno_(latest_seq),
       creation_seq_(latest_seq),
       mem_next_logfile_number_(0),
+      last_sequence_(0),
+      last_decree_(0),
       min_prep_log_referenced_(0),
       locks_(moptions_.inplace_update_support
                  ? moptions_.inplace_update_num_locks

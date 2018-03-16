@@ -283,6 +283,87 @@ Status SstFileReader::SetOldTableOptions() {
   return Status::OK();
 }
 
+static size_t escape_string(const char* src, size_t src_len, char* dest, size_t dest_len) {
+  const char* src_end = src + src_len;
+  size_t used = 0;
+  for (; src < src_end; src++) {
+    if (dest_len - used < 2)   // space for two-character escape
+      return (size_t)-1;
+    unsigned char c = *src;
+    switch (c) {
+    case '\n': dest[used++] = '\\'; dest[used++] = 'n';  break;
+    case '\r': dest[used++] = '\\'; dest[used++] = 'r';  break;
+    case '\t': dest[used++] = '\\'; dest[used++] = 't';  break;
+    case '\"': dest[used++] = '\\'; dest[used++] = '\"'; break;
+    case '\'': dest[used++] = '\\'; dest[used++] = '\''; break;
+    case '\\': dest[used++] = '\\'; dest[used++] = '\\'; break;
+    default:
+      // Note that if we emit \xNN and the src character after that is a hex
+      // digit then that digit must be escaped too to prevent it being
+      // interpreted as part of the character code by C.
+      if (c < ' ' || c > '~') {
+        if (dest_len - used < 5)   // space for four-character escape + \0
+          return (size_t)-1;
+        snprintf(dest + used, 5, "\\x%02X", c);
+        used += 4;
+      } else {
+        dest[used++] = c; break;
+      }
+    }
+  }
+  if (dest_len - used < 1)   // make sure that there is room for \0
+    return (size_t)-1;
+  dest[used] = '\0';   // doesn't count towards return value though
+  return used;
+}
+
+// T must support data() and length() method.
+template <class T>
+std::string escape_string(const T& src) {
+  const size_t dest_len = src.length() * 4 + 1; // Maximum possible expansion
+  char* dest = new char[dest_len];
+  const size_t used = escape_string(src.data(), src.length(), dest, dest_len);
+  std::string s(dest, used);
+  delete[] dest;
+  return s;
+}
+
+// T must support data() and length() method.
+template <typename T>
+static void pegasus_restore_key(const T& key, std::string& hash_key, std::string& sort_key) {
+  assert(key.length() >= 2);
+  // hash_key_len is in big endian
+  uint16_t hash_key_len = be16toh(*(int16_t*)(key.data()));
+  if (hash_key_len > 0) {
+    assert(key.length() >= (size_t)(2 + hash_key_len));
+    hash_key.assign(key.data() + 2, hash_key_len);
+  }
+  else {
+    hash_key.clear();
+  }
+  if (key.length() > (size_t)(2 + hash_key_len)) {
+    sort_key.assign(key.data() + 2 + hash_key_len, key.length() - 2 - hash_key_len);
+  }
+  else {
+    sort_key.clear();
+  }
+}
+
+// T must support data() and length() method.
+template <typename T>
+void pegasus_restore_value(const T& value, uint32_t& expire_ts, std::string& user_data) {
+  if (value.length() < 4)
+    return;
+  // expire_ts is in big endian
+  expire_ts = (uint32_t)be32toh(*(int32_t*)(value.data()));
+  if (value.length() > 4) {
+    user_data.assign(value.data() + 4, value.length() - 4);
+  }
+  else {
+    user_data.clear();
+  }
+}
+
 Status SstFileReader::ReadSequential(bool print_kv, uint64_t read_num,
                                      bool has_from, const std::string& from_key,
                                      bool has_to, const std::string& to_key,
@@ -327,9 +408,17 @@ Status SstFileReader::ReadSequential(bool print_kv, uint64_t read_num,
     }
 
     if (print_kv) {
-      fprintf(stdout, "%s => %s\n",
-          ikey.DebugString(output_hex_).c_str(),
-          value.ToString(output_hex_).c_str());
+      if (ikey.user_key.size() >= 2) {
+        uint32_t expire_ts = 0;
+        std::string hash_key, sort_key, user_data;
+        pegasus_restore_key(ikey.user_key, hash_key, sort_key);
+        pegasus_restore_value(value, expire_ts, user_data);
+        std::ostringstream oss;
+        oss << "\"" << escape_string(hash_key) << "\" : \"" << escape_string(sort_key)
+            << "\" @ " << ikey.sequence << " : " << ikey.type << " => "
+            << expire_ts << " : \"" << escape_string(user_data) << "\"";
+        fprintf(stdout, "%s\n", oss.str().c_str());
+      }
     }
   }
 

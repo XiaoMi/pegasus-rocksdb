@@ -921,6 +921,10 @@ struct DBOptions {
   // Note: This option is experimental and meant to be used only for internal
   // projects.
   bool seq_per_batch = false;
+
+  // Default value schema version.
+  // Default: 0
+  uint32_t default_value_schema_version = 0;
 };
 
 // Options to control the behavior of a database (passed to DB::Open)
@@ -1149,12 +1153,25 @@ struct WriteOptions {
   // Default: false
   bool low_pri;
 
+  // Sequence number is usually controlled by the db itself as 1,2,3, ...
+  // however, in cases where the upper frameworks (e.g., replication), the sequence
+  // number is given and the underlying db should use this given sequence number directly
+  // instead of generating one by itself.
+  //
+  // Default: 0 (rocksdb should generate the number by itself in this case)
+  SequenceNumber given_sequence_number;
+
+  // Decree is an value affiliated to the write.
+  uint64_t given_decree;
+
   WriteOptions()
       : sync(false),
         disableWAL(false),
         ignore_missing_column_families(false),
         no_slowdown(false),
-        low_pri(false) {}
+        low_pri(false),
+        given_sequence_number(0),
+        given_decree(0) {}
 };
 
 // Options that control flush operations

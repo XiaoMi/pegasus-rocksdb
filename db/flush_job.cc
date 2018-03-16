@@ -147,6 +147,15 @@ void FlushJob::PickMemTable() {
   // will no longer be picked up for recovery.
   edit_->SetLogNumber(mems_.back()->GetNextLogNumber());
   edit_->SetColumnFamily(cfd_->GetID());
+  // Mark the last sequence/decree of all memtables to be flushed. Although
+  // entries mems are sorted in ascending order by their created, we should
+  // iterate all mems but not take the last one because memtable may be empty.
+  for (auto mem : mems_) {
+    SequenceNumber seq;
+    uint64_t d;
+    mem->GetLastSeqDecree(&seq, &d);
+    edit_->UpdateLastFlushSeqDecree(seq, d);
+  }
 
   // path 0 for level 0 file.
   meta_.fd = FileDescriptor(versions_->NewFileNumber(), 0, 0);
