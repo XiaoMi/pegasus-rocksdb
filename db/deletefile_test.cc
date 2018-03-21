@@ -434,23 +434,26 @@ TEST_F(DeleteFileTest, DeleteNonDefaultColumnFamily) {
   rocksdb::DB* db;
   ASSERT_OK(DB::Open(db_options, dbname_, column_families, &handles, &db));
 
+  WriteOptions wop;
+  wop.disableWAL = true;
+
   Random rnd(5);
   for (int i = 0; i < 1000; ++i) {
-    ASSERT_OK(db->Put(WriteOptions(), handles[1], test::RandomKey(&rnd, 10),
+    ASSERT_OK(db->Put(wop, handles[0], test::RandomKey(&rnd, 10),
                       test::RandomKey(&rnd, 10)));
   }
-  ASSERT_OK(db->Flush(FlushOptions(), handles[1]));
+  ASSERT_OK(db->Flush(FlushOptions(), handles[0]));
   for (int i = 0; i < 1000; ++i) {
-    ASSERT_OK(db->Put(WriteOptions(), handles[1], test::RandomKey(&rnd, 10),
+    ASSERT_OK(db->Put(wop, handles[0], test::RandomKey(&rnd, 10),
                       test::RandomKey(&rnd, 10)));
   }
-  ASSERT_OK(db->Flush(FlushOptions(), handles[1]));
+  ASSERT_OK(db->Flush(FlushOptions(), handles[0]));
 
   std::vector<LiveFileMetaData> metadata;
   db->GetLiveFilesMetaData(&metadata);
   ASSERT_EQ(2U, metadata.size());
-  ASSERT_EQ("new_cf", metadata[0].column_family_name);
-  ASSERT_EQ("new_cf", metadata[1].column_family_name);
+  ASSERT_EQ("default", metadata[0].column_family_name);
+  ASSERT_EQ("default", metadata[1].column_family_name);
   auto old_file = metadata[0].smallest_seqno < metadata[1].smallest_seqno
                       ? metadata[0].name
                       : metadata[1].name;
@@ -461,7 +464,7 @@ TEST_F(DeleteFileTest, DeleteNonDefaultColumnFamily) {
   ASSERT_OK(db->DeleteFile(old_file));
 
   {
-    std::unique_ptr<Iterator> itr(db->NewIterator(ReadOptions(), handles[1]));
+    std::unique_ptr<Iterator> itr(db->NewIterator(ReadOptions(), handles[0]));
     int count = 0;
     for (itr->SeekToFirst(); itr->Valid(); itr->Next()) {
       ASSERT_OK(itr->status());
@@ -476,7 +479,7 @@ TEST_F(DeleteFileTest, DeleteNonDefaultColumnFamily) {
 
   ASSERT_OK(DB::Open(db_options, dbname_, column_families, &handles, &db));
   {
-    std::unique_ptr<Iterator> itr(db->NewIterator(ReadOptions(), handles[1]));
+    std::unique_ptr<Iterator> itr(db->NewIterator(ReadOptions(), handles[0]));
     int count = 0;
     for (itr->SeekToFirst(); itr->Valid(); itr->Next()) {
       ASSERT_OK(itr->status());

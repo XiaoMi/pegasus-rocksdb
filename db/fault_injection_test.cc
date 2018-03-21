@@ -350,7 +350,7 @@ __attribute__((__no_sanitize_undefined__))
   }
 };
 
-TEST_P(FaultInjectionTest, FaultTest) {
+TEST_P(FaultInjectionTest, DISABLED_FaultTest) {        // PEGASUS: we dont support WAL
   do {
     Random rnd(301);
 
@@ -390,7 +390,7 @@ TEST_P(FaultInjectionTest, FaultTest) {
 }
 
 // Previous log file is not fsynced if sync is forced after log rolling.
-TEST_P(FaultInjectionTest, WriteOptionSyncTest) {
+TEST_P(FaultInjectionTest, DISABLED_WriteOptionSyncTest) {        // PEGASUS: we dont support WAL
   test::SleepingBackgroundTask sleeping_task_low;
   env_->SetBackgroundThreads(1, Env::HIGH);
   // Block the job queue to prevent flush job from running.
@@ -476,7 +476,7 @@ TEST_P(FaultInjectionTest, UninstalledCompaction) {
   rocksdb::SyncPoint::GetInstance()->ClearAllCallBacks();
 }
 
-TEST_P(FaultInjectionTest, ManualLogSyncTest) {
+TEST_P(FaultInjectionTest, DISABLED_ManualLogSyncTest) {        // PEGASUS: we dont support WAL
   test::SleepingBackgroundTask sleeping_task_low;
   env_->SetBackgroundThreads(1, Env::HIGH);
   // Block the job queue to prevent flush job from running.
@@ -513,7 +513,7 @@ TEST_P(FaultInjectionTest, ManualLogSyncTest) {
   ASSERT_EQ(value_space, val);
 }
 
-TEST_P(FaultInjectionTest, WriteBatchWalTerminationTest) {
+TEST_P(FaultInjectionTest, DISABLED_WriteBatchWalTerminationTest) {        // PEGASUS: we dont support WAL
   ReadOptions ro;
   Options options = CurrentOptions();
   options.env = env_;

@@ -149,6 +149,9 @@ bool DBTestBase::ShouldSkipOptions(int option_config, int skip_mask) {
     if ((skip_mask & kSkipMmapReads) && option_config == kWalDirAndMmapReads) {
       return true;
     }
+    if ((skip_mask & kSkipPipelinedWrite) && option_config == kPipelinedWrite) {
+      return true;
+    }
     return false;
 }
 
@@ -625,7 +628,8 @@ Status DBTestBase::Flush(int cf, const FlushOptions& options) {
   }
 }
 
-Status DBTestBase::Put(const Slice& k, const Slice& v, WriteOptions wo) {
+Status DBTestBase::Put(const Slice& k, const Slice& v, WriteOptions wo, bool disableWAL) {
+  wo.disableWAL = disableWAL;
   if (kMergePut == option_config_) {
     return db_->Merge(wo, k, v);
   } else {
@@ -636,9 +640,17 @@ Status DBTestBase::Put(const Slice& k, const Slice& v, WriteOptions wo) {
 Status DBTestBase::Put(int cf, const Slice& k, const Slice& v,
                        WriteOptions wo) {
   if (kMergePut == option_config_) {
-    return db_->Merge(wo, handles_[cf], k, v);
+    if (cf == 0) {
+      return db_->Merge(wo, k, v);
+    } else {
+      return db_->Merge(wo, handles_[cf], k, v);
+    }
   } else {
-    return db_->Put(wo, handles_[cf], k, v);
+    if (cf == 0) {
+      return db_->Put(wo, k, v);
+    } else {
+        return db_->Put(wo, handles_[cf], k, v);
+    }
   }
 }
 
@@ -984,7 +996,13 @@ void DBTestBase::MakeTables(int n, const std::string& small,
 // tables that cover a specified range to all levels.
 void DBTestBase::FillLevels(const std::string& smallest,
                             const std::string& largest, int cf) {
-  MakeTables(db_->NumberLevels(handles_[cf]), smallest, largest, cf);
+  int levels = 0;
+  if (cf == 0) {
+    levels = db_->NumberLevels();
+  } else {
+    levels = db_->NumberLevels(handles_[cf]);
+  }
+  MakeTables(levels, smallest, largest, cf);
 }
 
 void DBTestBase::MoveFilesToLevel(int level, int cf) {
@@ -1047,9 +1065,9 @@ void DBTestBase::GenerateNewFile(int cf, Random* rnd, int* key_idx,
 }
 
 // this will generate non-overlapping files since it keeps increasing key_idx
-void DBTestBase::GenerateNewFile(Random* rnd, int* key_idx, bool nowait) {
+void DBTestBase::GenerateNewFile(Random* rnd, int* key_idx, bool nowait, bool disableWAL) {
   for (int i = 0; i < KNumKeysByGenerateNewFile; i++) {
-    ASSERT_OK(Put(Key(*key_idx), RandomString(rnd, (i == 99) ? 1 : 990)));
+    ASSERT_OK(Put(Key(*key_idx), RandomString(rnd, (i == 99) ? 1 : 990), WriteOptions(), disableWAL));
     (*key_idx)++;
   }
   if (!nowait) {

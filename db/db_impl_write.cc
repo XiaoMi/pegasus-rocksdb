@@ -81,7 +81,7 @@ Status DBImpl::WriteImpl(const WriteOptions& write_options,
 
   // ATTENTION(qinzuoyan): always only use default column family under
   // replication framework.
-  assert(single_column_family_mode_);
+  //assert(single_column_family_mode_);
 
   Status status;
   if (write_options.low_pri) {

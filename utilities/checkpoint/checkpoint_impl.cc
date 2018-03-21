@@ -53,6 +53,8 @@ Status Checkpoint::CreateCheckpointQuick(const std::string& checkpoint_dir,
 // Builds an openable snapshot of RocksDB
 Status CheckpointImpl::CreateCheckpoint(const std::string& checkpoint_dir,
                                         uint64_t log_size_for_flush) {
+  // ATTENTION(laiyingchun): log_size_for_flush should always be 0 to avoid data lost in pegasus.
+  assert(log_size_for_flush == 0);
   DBOptions db_options = db_->GetDBOptions();
 
   Status s = db_->GetEnv()->FileExists(checkpoint_dir);

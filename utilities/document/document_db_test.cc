@@ -15,13 +15,14 @@
 
 namespace rocksdb {
 
-class DocumentDBTest : public testing::Test {
+// NOTE: we will not use DocumentDB in pegasus
+class DISABLED_DocumentDBTest : public testing::Test {
  public:
-  DocumentDBTest() {
+  DISABLED_DocumentDBTest() {
     dbname_ = test::TmpDir() + "/document_db_test";
     DestroyDB(dbname_, Options());
   }
-  ~DocumentDBTest() {
+  ~DISABLED_DocumentDBTest() {
     delete db_;
     DestroyDB(dbname_, Options());
   }
@@ -66,7 +67,7 @@ class DocumentDBTest : public testing::Test {
   DocumentDB* db_;
 };
 
-TEST_F(DocumentDBTest, SimpleQueryTest) {
+TEST_F(DISABLED_DocumentDBTest, SimpleQueryTest) {
   DocumentDBOptions options;
   DocumentDB::IndexDescriptor index;
   index.description = Parse("{\"name\": 1}");
@@ -138,7 +139,7 @@ TEST_F(DocumentDBTest, SimpleQueryTest) {
   }
 }
 
-TEST_F(DocumentDBTest, ComplexQueryTest) {
+TEST_F(DISABLED_DocumentDBTest, ComplexQueryTest) {
   DocumentDBOptions options;
   DocumentDB::IndexDescriptor priority_index;
   priority_index.description = Parse("{'priority': 1}");

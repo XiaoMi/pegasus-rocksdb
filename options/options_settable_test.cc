@@ -285,7 +285,8 @@ TEST_F(OptionsSettableTest, DBOptionsAllFieldsSettable) {
                              "preserve_deletes=false;"
                              "concurrent_prepare=false;"
                              "manual_wal_flush=false;"
-                             "seq_per_batch=false;",
+                             "seq_per_batch=false;"
+                             "default_value_schema_version=0;",
                              new_options));
 
   ASSERT_EQ(unset_bytes_base, NumUnsetBytes(new_options_ptr, sizeof(DBOptions),

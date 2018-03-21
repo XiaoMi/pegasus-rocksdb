@@ -53,12 +53,13 @@ class FlushBlockEveryKeyPolicyFactory : public FlushBlockPolicyFactory {
 TEST_F(DBIteratorTest, IteratorProperty) {
   // The test needs to be changed if kPersistedTier is supported in iterator.
   Options options = CurrentOptions();
-  CreateAndReopenWithCF({"pikachu"}, options);
-  Put(1, "1", "2");
+  Reopen(options);
+  //CreateAndReopenWithCF({"pikachu"}, options);
+  Put("1", "2");
   ReadOptions ropt;
   ropt.pin_data = false;
   {
-    unique_ptr<Iterator> iter(db_->NewIterator(ropt, handles_[1]));
+    unique_ptr<Iterator> iter(db_->NewIterator(ropt));
     iter->SeekToFirst();
     std::string prop_value;
     ASSERT_NOK(iter->GetProperty("non_existing.value", &prop_value));
@@ -93,13 +94,14 @@ TEST_F(DBIteratorTest, NonBlockingIteration) {
     Options options = CurrentOptions();
     options.statistics = rocksdb::CreateDBStatistics();
     non_blocking_opts.read_tier = kBlockCacheTier;
-    CreateAndReopenWithCF({"pikachu"}, options);
+    Reopen(options);
+    //CreateAndReopenWithCF({"pikachu"}, options);
     // write one kv to the database.
-    ASSERT_OK(Put(1, "a", "b"));
+    ASSERT_OK(Put("a", "b"));
 
     // scan using non-blocking iterator. We should find it because
     // it is in memtable.
-    Iterator* iter = db_->NewIterator(non_blocking_opts, handles_[1]);
+    Iterator* iter = db_->NewIterator(non_blocking_opts);
     int count = 0;
     for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
       ASSERT_OK(iter->status());
@@ -110,13 +112,13 @@ TEST_F(DBIteratorTest, NonBlockingIteration) {
 
     // flush memtable to storage. Now, the key should not be in the
     // memtable neither in the block cache.
-    ASSERT_OK(Flush(1));
+    ASSERT_OK(Flush());
 
     // verify that a non-blocking iterator does not find any
     // kvs. Neither does it do any IOs to storage.
     uint64_t numopen = TestGetTickerCount(options, NO_FILE_OPENS);
     uint64_t cache_added = TestGetTickerCount(options, BLOCK_CACHE_ADD);
-    iter = db_->NewIterator(non_blocking_opts, handles_[1]);
+    iter = db_->NewIterator(non_blocking_opts);
     count = 0;
     for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
       count++;
@@ -128,12 +130,12 @@ TEST_F(DBIteratorTest, NonBlockingIteration) {
     delete iter;
 
     // read in the specified block via a regular get
-    ASSERT_EQ(Get(1, "a"), "b");
+    ASSERT_EQ(Get("a"), "b");
 
     // verify that we can find it via a non-blocking scan
     numopen = TestGetTickerCount(options, NO_FILE_OPENS);
     cache_added = TestGetTickerCount(options, BLOCK_CACHE_ADD);
-    iter = db_->NewIterator(non_blocking_opts, handles_[1]);
+    iter = db_->NewIterator(non_blocking_opts);
     count = 0;
     for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
       ASSERT_OK(iter->status());
@@ -148,7 +150,7 @@ TEST_F(DBIteratorTest, NonBlockingIteration) {
     // table format.
     // Exclude kHashCuckoo as it does not support iteration currently
   } while (ChangeOptions(kSkipPlainTable | kSkipNoSeekToLast | kSkipHashCuckoo |
-                         kSkipMmapReads));
+                         kSkipMmapReads | kSkipPipelinedWrite));
 }
 
 #ifndef ROCKSDB_LITE
@@ -159,13 +161,14 @@ TEST_F(DBIteratorTest, ManagedNonBlockingIteration) {
     options.statistics = rocksdb::CreateDBStatistics();
     non_blocking_opts.read_tier = kBlockCacheTier;
     non_blocking_opts.managed = true;
-    CreateAndReopenWithCF({"pikachu"}, options);
+    Reopen(options);
+    //CreateAndReopenWithCF({"pikachu"}, options);
     // write one kv to the database.
-    ASSERT_OK(Put(1, "a", "b"));
+    ASSERT_OK(Put("a", "b"));
 
     // scan using non-blocking iterator. We should find it because
     // it is in memtable.
-    Iterator* iter = db_->NewIterator(non_blocking_opts, handles_[1]);
+    Iterator* iter = db_->NewIterator(non_blocking_opts);
     int count = 0;
     for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
       ASSERT_OK(iter->status());
@@ -176,13 +179,13 @@ TEST_F(DBIteratorTest, ManagedNonBlockingIteration) {
 
     // flush memtable to storage. Now, the key should not be in the
     // memtable neither in the block cache.
-    ASSERT_OK(Flush(1));
+    ASSERT_OK(Flush());
 
     // verify that a non-blocking iterator does not find any
     // kvs. Neither does it do any IOs to storage.
     int64_t numopen = TestGetTickerCount(options, NO_FILE_OPENS);
     int64_t cache_added = TestGetTickerCount(options, BLOCK_CACHE_ADD);
-    iter = db_->NewIterator(non_blocking_opts, handles_[1]);
+    iter = db_->NewIterator(non_blocking_opts);
     count = 0;
     for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
       count++;
@@ -194,12 +197,12 @@ TEST_F(DBIteratorTest, ManagedNonBlockingIteration) {
     delete iter;
 
     // read in the specified block via a regular get
-    ASSERT_EQ(Get(1, "a"), "b");
+    ASSERT_EQ(Get("a"), "b");
 
     // verify that we can find it via a non-blocking scan
     numopen = TestGetTickerCount(options, NO_FILE_OPENS);
     cache_added = TestGetTickerCount(options, BLOCK_CACHE_ADD);
-    iter = db_->NewIterator(non_blocking_opts, handles_[1]);
+    iter = db_->NewIterator(non_blocking_opts);
     count = 0;
     for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
       ASSERT_OK(iter->status());
@@ -214,7 +217,7 @@ TEST_F(DBIteratorTest, ManagedNonBlockingIteration) {
     // table format.
     // Exclude kHashCuckoo as it does not support iteration currently
   } while (ChangeOptions(kSkipPlainTable | kSkipNoSeekToLast | kSkipHashCuckoo |
-                         kSkipMmapReads));
+                         kSkipMmapReads | kSkipPipelinedWrite));
 }
 #endif  // ROCKSDB_LITE
 
@@ -405,9 +408,10 @@ TEST_F(DBIteratorTest, IterEmpty) {
 
 TEST_F(DBIteratorTest, IterSingle) {
   do {
-    CreateAndReopenWithCF({"pikachu"}, CurrentOptions());
-    ASSERT_OK(Put(1, "a", "va"));
-    Iterator* iter = db_->NewIterator(ReadOptions(), handles_[1]);
+    Reopen(CurrentOptions());
+    //CreateAndReopenWithCF({"pikachu"}, CurrentOptions());
+    ASSERT_OK(Put("a", "va"));
+    Iterator* iter = db_->NewIterator(ReadOptions());
 
     iter->SeekToFirst();
     ASSERT_EQ(IterStatus(iter), "a->va");
@@ -456,11 +460,12 @@ TEST_F(DBIteratorTest, IterSingle) {
 
 TEST_F(DBIteratorTest, IterMulti) {
   do {
-    CreateAndReopenWithCF({"pikachu"}, CurrentOptions());
-    ASSERT_OK(Put(1, "a", "va"));
-    ASSERT_OK(Put(1, "b", "vb"));
-    ASSERT_OK(Put(1, "c", "vc"));
-    Iterator* iter = db_->NewIterator(ReadOptions(), handles_[1]);
+    Reopen(CurrentOptions());
+    //CreateAndReopenWithCF({"pikachu"}, CurrentOptions());
+    ASSERT_OK(Put("a", "va"));
+    ASSERT_OK(Put("b", "vb"));
+    ASSERT_OK(Put("c", "vc"));
+    Iterator* iter = db_->NewIterator(ReadOptions());
 
     iter->SeekToFirst();
     ASSERT_EQ(IterStatus(iter), "a->va");
@@ -525,11 +530,11 @@ TEST_F(DBIteratorTest, IterMulti) {
     ASSERT_EQ(IterStatus(iter), "b->vb");
 
     // Make sure iter stays at snapshot
-    ASSERT_OK(Put(1, "a", "va2"));
-    ASSERT_OK(Put(1, "a2", "va3"));
-    ASSERT_OK(Put(1, "b", "vb2"));
-    ASSERT_OK(Put(1, "c", "vc2"));
-    ASSERT_OK(Delete(1, "b"));
+    ASSERT_OK(Put("a", "va2"));
+    ASSERT_OK(Put("a2", "va3"));
+    ASSERT_OK(Put("b", "vb2"));
+    ASSERT_OK(Put("c", "vc2"));
+    ASSERT_OK(Delete("b"));
     iter->SeekToFirst();
     ASSERT_EQ(IterStatus(iter), "a->va");
     iter->Next();
@@ -561,16 +566,17 @@ TEST_F(DBIteratorTest, IterReseek) {
   options.create_if_missing = true;
   options.statistics = rocksdb::CreateDBStatistics();
   DestroyAndReopen(options);
-  CreateAndReopenWithCF({"pikachu"}, options);
+  Reopen(options);
+//  CreateAndReopenWithCF({"pikachu"}, options);
 
   // insert three keys with same userkey and verify that
   // reseek is not invoked. For each of these test cases,
   // verify that we can find the next key "b".
-  ASSERT_OK(Put(1, "a", "zero"));
-  ASSERT_OK(Put(1, "a", "one"));
-  ASSERT_OK(Put(1, "a", "two"));
-  ASSERT_OK(Put(1, "b", "bone"));
-  Iterator* iter = db_->NewIterator(ReadOptions(), handles_[1]);
+  ASSERT_OK(Put("a", "zero"));
+  ASSERT_OK(Put("a", "one"));
+  ASSERT_OK(Put("a", "two"));
+  ASSERT_OK(Put("b", "bone"));
+  Iterator* iter = db_->NewIterator(ReadOptions());
   iter->SeekToFirst();
   ASSERT_EQ(TestGetTickerCount(options, NUMBER_OF_RESEEKS_IN_ITERATION), 0);
   ASSERT_EQ(IterStatus(iter), "a->two");
@@ -581,8 +587,8 @@ TEST_F(DBIteratorTest, IterReseek) {
 
   // insert a total of three keys with same userkey and verify
   // that reseek is still not invoked.
-  ASSERT_OK(Put(1, "a", "three"));
-  iter = db_->NewIterator(ReadOptions(), handles_[1]);
+  ASSERT_OK(Put("a", "three"));
+  iter = db_->NewIterator(ReadOptions());
   iter->SeekToFirst();
   ASSERT_EQ(IterStatus(iter), "a->three");
   iter->Next();
@@ -592,8 +598,8 @@ TEST_F(DBIteratorTest, IterReseek) {
 
   // insert a total of four keys with same userkey and verify
   // that reseek is invoked.
-  ASSERT_OK(Put(1, "a", "four"));
-  iter = db_->NewIterator(ReadOptions(), handles_[1]);
+  ASSERT_OK(Put("a", "four"));
+  iter = db_->NewIterator(ReadOptions());
   iter->SeekToFirst();
   ASSERT_EQ(IterStatus(iter), "a->four");
   ASSERT_EQ(TestGetTickerCount(options, NUMBER_OF_RESEEKS_IN_ITERATION), 0);
@@ -609,8 +615,8 @@ TEST_F(DBIteratorTest, IterReseek) {
       TestGetTickerCount(options, NUMBER_OF_RESEEKS_IN_ITERATION));
 
   // Insert another version of b and assert that reseek is not invoked
-  ASSERT_OK(Put(1, "b", "btwo"));
-  iter = db_->NewIterator(ReadOptions(), handles_[1]);
+  ASSERT_OK(Put("b", "btwo"));
+  iter = db_->NewIterator(ReadOptions());
   iter->SeekToLast();
   ASSERT_EQ(IterStatus(iter), "b->btwo");
   ASSERT_EQ(TestGetTickerCount(options, NUMBER_OF_RESEEKS_IN_ITERATION),
@@ -623,9 +629,9 @@ TEST_F(DBIteratorTest, IterReseek) {
 
   // insert two more versions of b. This makes a total of 4 versions
   // of b and 4 versions of a.
-  ASSERT_OK(Put(1, "b", "bthree"));
-  ASSERT_OK(Put(1, "b", "bfour"));
-  iter = db_->NewIterator(ReadOptions(), handles_[1]);
+  ASSERT_OK(Put("b", "bthree"));
+  ASSERT_OK(Put("b", "bfour"));
+  iter = db_->NewIterator(ReadOptions());
   iter->SeekToLast();
   ASSERT_EQ(IterStatus(iter), "b->bfour");
   ASSERT_EQ(TestGetTickerCount(options, NUMBER_OF_RESEEKS_IN_ITERATION),
@@ -641,14 +647,15 @@ TEST_F(DBIteratorTest, IterReseek) {
 
 TEST_F(DBIteratorTest, IterSmallAndLargeMix) {
   do {
-    CreateAndReopenWithCF({"pikachu"}, CurrentOptions());
-    ASSERT_OK(Put(1, "a", "va"));
-    ASSERT_OK(Put(1, "b", std::string(100000, 'b')));
-    ASSERT_OK(Put(1, "c", "vc"));
-    ASSERT_OK(Put(1, "d", std::string(100000, 'd')));
-    ASSERT_OK(Put(1, "e", std::string(100000, 'e')));
+    Reopen(CurrentOptions());
+//    CreateAndReopenWithCF({"pikachu"}, CurrentOptions());
+    ASSERT_OK(Put("a", "va"));
+    ASSERT_OK(Put("b", std::string(100000, 'b')));
+    ASSERT_OK(Put("c", "vc"));
+    ASSERT_OK(Put("d", std::string(100000, 'd')));
+    ASSERT_OK(Put("e", std::string(100000, 'e')));
 
-    Iterator* iter = db_->NewIterator(ReadOptions(), handles_[1]);
+    Iterator* iter = db_->NewIterator(ReadOptions());
 
     iter->SeekToFirst();
     ASSERT_EQ(IterStatus(iter), "a->va");
@@ -682,14 +689,15 @@ TEST_F(DBIteratorTest, IterSmallAndLargeMix) {
 
 TEST_F(DBIteratorTest, IterMultiWithDelete) {
   do {
-    CreateAndReopenWithCF({"pikachu"}, CurrentOptions());
-    ASSERT_OK(Put(1, "ka", "va"));
-    ASSERT_OK(Put(1, "kb", "vb"));
-    ASSERT_OK(Put(1, "kc", "vc"));
-    ASSERT_OK(Delete(1, "kb"));
-    ASSERT_EQ("NOT_FOUND", Get(1, "kb"));
+    Reopen(CurrentOptions());
+    //CreateAndReopenWithCF({"pikachu"}, CurrentOptions());
+    ASSERT_OK(Put("ka", "va"));
+    ASSERT_OK(Put("kb", "vb"));
+    ASSERT_OK(Put("kc", "vc"));
+    ASSERT_OK(Delete("kb"));
+    ASSERT_EQ("NOT_FOUND", Get("kb"));
 
-    Iterator* iter = db_->NewIterator(ReadOptions(), handles_[1]);
+    Iterator* iter = db_->NewIterator(ReadOptions());
     iter->Seek("kc");
     ASSERT_EQ(IterStatus(iter), "kc->vc");
     if (!CurrentOptions().merge_operator) {
@@ -703,59 +711,61 @@ TEST_F(DBIteratorTest, IterMultiWithDelete) {
       }
     }
     delete iter;
-  } while (ChangeOptions());
+  } while (ChangeOptions(kSkipPipelinedWrite));
 }
 
 TEST_F(DBIteratorTest, IterPrevMaxSkip) {
   do {
-    CreateAndReopenWithCF({"pikachu"}, CurrentOptions());
+    Reopen(CurrentOptions());
+    //CreateAndReopenWithCF({"pikachu"}, CurrentOptions());
     for (int i = 0; i < 2; i++) {
-      ASSERT_OK(Put(1, "key1", "v1"));
-      ASSERT_OK(Put(1, "key2", "v2"));
-      ASSERT_OK(Put(1, "key3", "v3"));
-      ASSERT_OK(Put(1, "key4", "v4"));
-      ASSERT_OK(Put(1, "key5", "v5"));
+      ASSERT_OK(Put("key1", "v1"));
+      ASSERT_OK(Put("key2", "v2"));
+      ASSERT_OK(Put("key3", "v3"));
+      ASSERT_OK(Put("key4", "v4"));
+      ASSERT_OK(Put("key5", "v5"));
     }
 
-    VerifyIterLast("key5->v5", 1);
+    VerifyIterLast("key5->v5");
 
-    ASSERT_OK(Delete(1, "key5"));
-    VerifyIterLast("key4->v4", 1);
+    ASSERT_OK(Delete("key5"));
+    VerifyIterLast("key4->v4");
 
-    ASSERT_OK(Delete(1, "key4"));
-    VerifyIterLast("key3->v3", 1);
+    ASSERT_OK(Delete("key4"));
+    VerifyIterLast("key3->v3");
 
-    ASSERT_OK(Delete(1, "key3"));
-    VerifyIterLast("key2->v2", 1);
+    ASSERT_OK(Delete("key3"));
+    VerifyIterLast("key2->v2");
 
-    ASSERT_OK(Delete(1, "key2"));
-    VerifyIterLast("key1->v1", 1);
+    ASSERT_OK(Delete("key2"));
+    VerifyIterLast("key1->v1");
 
-    ASSERT_OK(Delete(1, "key1"));
-    VerifyIterLast("(invalid)", 1);
-  } while (ChangeOptions(kSkipMergePut | kSkipNoSeekToLast));
+    ASSERT_OK(Delete("key1"));
+    VerifyIterLast("(invalid)");
+  } while (ChangeOptions(kSkipMergePut | kSkipNoSeekToLast | kSkipPipelinedWrite));
 }
 
 TEST_F(DBIteratorTest, IterWithSnapshot) {
   anon::OptionsOverride options_override;
   options_override.skip_policy = kSkipNoSnapshot;
   do {
-    CreateAndReopenWithCF({"pikachu"}, CurrentOptions(options_override));
-    ASSERT_OK(Put(1, "key1", "val1"));
-    ASSERT_OK(Put(1, "key2", "val2"));
-    ASSERT_OK(Put(1, "key3", "val3"));
-    ASSERT_OK(Put(1, "key4", "val4"));
-    ASSERT_OK(Put(1, "key5", "val5"));
+    Reopen(CurrentOptions());
+    //CreateAndReopenWithCF({"pikachu"}, CurrentOptions(options_override));
+    ASSERT_OK(Put("key1", "val1"));
+    ASSERT_OK(Put("key2", "val2"));
+    ASSERT_OK(Put("key3", "val3"));
+    ASSERT_OK(Put("key4", "val4"));
+    ASSERT_OK(Put("key5", "val5"));
 
     const Snapshot* snapshot = db_->GetSnapshot();
     ReadOptions options;
     options.snapshot = snapshot;
-    Iterator* iter = db_->NewIterator(options, handles_[1]);
+    Iterator* iter = db_->NewIterator(options);
 
-    ASSERT_OK(Put(1, "key0", "val0"));
+    ASSERT_OK(Put("key0", "val0"));
     // Put more values after the snapshot
-    ASSERT_OK(Put(1, "key100", "val100"));
-    ASSERT_OK(Put(1, "key101", "val101"));
+    ASSERT_OK(Put("key100", "val100"));
+    ASSERT_OK(Put("key101", "val101"));
 
     iter->Seek("key5");
     ASSERT_EQ(IterStatus(iter), "key5->val5");
@@ -800,24 +810,25 @@ TEST_F(DBIteratorTest, IterWithSnapshot) {
     db_->ReleaseSnapshot(snapshot);
     delete iter;
     // skip as HashCuckooRep does not support snapshot
-  } while (ChangeOptions(kSkipHashCuckoo));
+  } while (ChangeOptions(kSkipHashCuckoo | kSkipPipelinedWrite));
 }
 
 TEST_F(DBIteratorTest, IteratorPinsRef) {
   do {
-    CreateAndReopenWithCF({"pikachu"}, CurrentOptions());
-    Put(1, "foo", "hello");
+    Reopen(CurrentOptions());
+    //CreateAndReopenWithCF({"pikachu"}, CurrentOptions());
+    Put("foo", "hello");
 
     // Get iterator that will yield the current contents of the DB.
-    Iterator* iter = db_->NewIterator(ReadOptions(), handles_[1]);
+    Iterator* iter = db_->NewIterator(ReadOptions());
 
     // Write to force compactions
-    Put(1, "foo", "newvalue1");
+    Put("foo", "newvalue1");
     for (int i = 0; i < 100; i++) {
       // 100K values
-      ASSERT_OK(Put(1, Key(i), Key(i) + std::string(100000, 'v')));
+      ASSERT_OK(Put(Key(i), Key(i) + std::string(100000, 'v')));
     }
-    Put(1, "foo", "newvalue2");
+    Put("foo", "newvalue2");
 
     iter->SeekToFirst();
     ASSERT_TRUE(iter->Valid());

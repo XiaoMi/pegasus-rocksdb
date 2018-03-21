@@ -288,7 +288,8 @@ Status DBImpl::CompactRange(const CompactRangeOptions& options,
   bool exclusive = options.exclusive_manual_compaction;
 
   Status s = FlushMemTable(cfd, FlushOptions());
-  if (!s.ok()) {
+  // NOTE: FlushMemTable will return NoNeedOperate when memtable is empty
+  if (!s.ok() && !s.IsNoNeedOperate()) {
     LogFlush(immutable_db_options_.info_log);
     return s;
   }

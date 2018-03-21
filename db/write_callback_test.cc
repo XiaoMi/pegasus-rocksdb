@@ -24,11 +24,11 @@ using std::string;
 
 namespace rocksdb {
 
-class WriteCallbackTest : public testing::Test {
+class DISABLED_WriteCallbackTest : public testing::Test {
  public:
   string dbname;
 
-  WriteCallbackTest() {
+  DISABLED_WriteCallbackTest() {
     dbname = test::TmpDir() + "/write_callback_testdb";
   }
 };
@@ -86,7 +86,7 @@ class MockWriteCallback : public WriteCallback {
   bool AllowWriteBatching() override { return allow_batching_; }
 };
 
-TEST_F(WriteCallbackTest, WriteWithCallbackTest) {
+TEST_F(DISABLED_WriteCallbackTest, WriteWithCallbackTest) {
   struct WriteOP {
     WriteOP(bool should_fail = false) { callback_.should_fail_ = should_fail; }
 
@@ -322,7 +322,7 @@ TEST_F(WriteCallbackTest, WriteWithCallbackTest) {
 }
 }
 
-TEST_F(WriteCallbackTest, WriteCallBackTest) {
+TEST_F(DISABLED_WriteCallbackTest, WriteCallBackTest) {
   Options options;
   WriteOptions write_options;
   ReadOptions read_options;

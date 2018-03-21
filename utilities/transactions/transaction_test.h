@@ -4,7 +4,7 @@
 //  (found in the LICENSE.Apache file in the root directory).
 
 #pragma once
-
+#ifndef PEGASUS
 #ifndef __STDC_FORMAT_MACROS
 #define __STDC_FORMAT_MACROS
 #endif
@@ -242,3 +242,5 @@ class TransactionTest : public ::testing::TestWithParam<
 class MySQLStyleTransactionTest : public TransactionTest {};
 
 }  // namespace rocksdb
+
+#endif  // PEGASUS

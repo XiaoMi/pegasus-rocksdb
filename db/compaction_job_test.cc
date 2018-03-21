@@ -195,6 +195,7 @@ class CompactionJobTest : public testing::Test {
     new_db.SetLogNumber(0);
     new_db.SetNextFile(2);
     new_db.SetLastSequence(0);
+    new_db.SetValueSchemaVersion(0);
 
     const std::string manifest = DescriptorFileName(dbname_, 1);
     unique_ptr<WritableFile> file;

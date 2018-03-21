@@ -349,7 +349,7 @@ TEST_F(ExternalSSTFileTest, Basic) {
         std::string value = Key(k) + "_val";
         ASSERT_EQ(Get(Key(k)), value);
       }
-      ASSERT_OK(Flush());
+      ASSERT_TRUE(Flush().ok() || Flush().IsNoNeedOperate());
       ASSERT_OK(db_->CompactRange(CompactRangeOptions(), nullptr, nullptr));
     }
 
@@ -377,7 +377,7 @@ TEST_F(ExternalSSTFileTest, Basic) {
       ASSERT_EQ(Get(Key(k)), value);
     }
     DestroyAndRecreateExternalSSTFilesDir();
-  } while (ChangeOptions(kSkipPlainTable | kSkipFIFOCompaction));
+  } while (ChangeOptions(kSkipPlainTable | kSkipFIFOCompaction | kSkipPipelinedWrite));
 }
 class SstFileWriterCollector : public TablePropertiesCollector {
  public:
@@ -593,7 +593,7 @@ TEST_F(ExternalSSTFileTest, AddList) {
         std::string value = Key(k) + "_val";
         ASSERT_EQ(Get(Key(k)), value);
       }
-      ASSERT_OK(Flush());
+      ASSERT_TRUE(Flush().ok() || Flush().IsNoNeedOperate());
       ASSERT_OK(db_->CompactRange(CompactRangeOptions(), nullptr, nullptr));
     }
 
@@ -617,7 +617,7 @@ TEST_F(ExternalSSTFileTest, AddList) {
       ASSERT_EQ(Get(Key(k)), value);
     }
     DestroyAndRecreateExternalSSTFilesDir();
-  } while (ChangeOptions(kSkipPlainTable | kSkipFIFOCompaction));
+  } while (ChangeOptions(kSkipPlainTable | kSkipFIFOCompaction | kSkipPipelinedWrite));
 }
 
 TEST_F(ExternalSSTFileTest, AddListAtomicity) {
@@ -659,7 +659,7 @@ TEST_F(ExternalSSTFileTest, AddListAtomicity) {
       ASSERT_EQ(Get(Key(k)), value);
     }
     DestroyAndRecreateExternalSSTFilesDir();
-  } while (ChangeOptions(kSkipPlainTable | kSkipFIFOCompaction));
+  } while (ChangeOptions(kSkipPlainTable | kSkipFIFOCompaction | kSkipPipelinedWrite));
 }
 // This test reporduce a bug that can happen in some cases if the DB started
 // purging obsolete files when we are adding an external sst file.
@@ -884,13 +884,13 @@ TEST_F(ExternalSSTFileTest, MultiThreaded) {
         std::string value = (k % 100 == 0) ? (key + "_new") : key;
         ASSERT_EQ(Get(key), value);
       }
-      ASSERT_OK(Flush());
+      ASSERT_TRUE(Flush().ok() || Flush().IsNoNeedOperate());
       ASSERT_OK(db_->CompactRange(CompactRangeOptions(), nullptr, nullptr));
     }
 
     fprintf(stderr, "Verified %d values\n", num_files * keys_per_file);
     DestroyAndRecreateExternalSSTFilesDir();
-  } while (ChangeOptions(kSkipPlainTable | kSkipFIFOCompaction));
+  } while (ChangeOptions(kSkipPlainTable | kSkipFIFOCompaction | kSkipPipelinedWrite));
 }
 
 TEST_F(ExternalSSTFileTest, OverlappingRanges) {
@@ -1020,7 +1020,7 @@ TEST_F(ExternalSSTFileTest, OverlappingRanges) {
     }
     printf("keys/values verified\n");
     DestroyAndRecreateExternalSSTFilesDir();
-  } while (ChangeOptions(kSkipPlainTable | kSkipFIFOCompaction));
+  } while (ChangeOptions(kSkipPlainTable | kSkipFIFOCompaction | kSkipPipelinedWrite));
 }
 
 TEST_F(ExternalSSTFileTest, PickedLevel) {

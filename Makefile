@@ -40,6 +40,8 @@ quoted_perl_command = $(subst ','\'',$(perl_command))
 # `make install-shared`, `make static_lib`, `make install-static` or
 # `make install`
 
+CXXFLAGS += -DPEGASUS
+
 # Set the default DEBUG_LEVEL to 1
 DEBUG_LEVEL?=1
 
@@ -283,7 +285,7 @@ endif
 default: all
 
 WARNING_FLAGS = -W -Wextra -Wall -Wsign-compare -Wshadow \
-  -Wno-unused-parameter
+  -Wno-unused-parameter -Wno-unused-function
 
 ifndef DISABLE_WARNING_AS_ERROR
 	WARNING_FLAGS += -Werror
