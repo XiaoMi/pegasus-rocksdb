@@ -376,6 +376,11 @@ Status DBImpl::CompactRange(const CompactRangeOptions& options,
     if (s.ok()) {
       s = ReFitLevel(cfd, final_output_level, options.target_level);
     }
+    VersionStorageInfo::LevelSummaryStorage tmp;
+    ROCKS_LOG_INFO(immutable_db_options_.info_log,
+                   "[%s] Level summary with lsm_state after ReFitLevel: %s\n",
+                   cfd->GetName().c_str(),
+                   cfd->current()->storage_info()->LevelSummary(&tmp));
     ContinueBackgroundWork();
   }
   LogFlush(immutable_db_options_.info_log);
