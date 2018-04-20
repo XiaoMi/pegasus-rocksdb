@@ -235,6 +235,8 @@ class DBImpl : public DB {
 
   virtual uint32_t GetValueSchemaVersion() override;
 
+  virtual uint64_t GetLastManualCompactFinishTime() override;
+
 #ifndef ROCKSDB_LITE
   using DB::ResetStats;
   virtual Status ResetStats() override;

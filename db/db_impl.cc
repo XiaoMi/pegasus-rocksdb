@@ -770,6 +770,13 @@ uint32_t DBImpl::GetValueSchemaVersion() {
     return version;
 }
 
+uint64_t DBImpl::GetLastManualCompactFinishTime() {
+    mutex_.Lock();
+    uint64_t ms = versions_->GetColumnFamilySet()->GetLastManualCompactFinishTime();
+    mutex_.Unlock();
+    return ms;
+}
+
 SequenceNumber DBImpl::IncAndFetchSequenceNumber() {
   return versions_->FetchAddLastToBeWrittenSequence(1ull) + 1ull;
 }
