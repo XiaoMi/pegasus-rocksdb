@@ -957,7 +957,7 @@ Status DBImpl::FlushMemTable(ColumnFamilyData* cfd,
     if (cfd->imm()->NumNotFlushed() == 0 && cfd->mem()->IsEmpty() &&
         cached_recoverable_state_empty_.load()) {
       // Nothing to flush
-      return Status::NoNeedOperate();
+      return Status::OK();
     }
 
     if (!cfd->mem()->IsEmpty()) {
