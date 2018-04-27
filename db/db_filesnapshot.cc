@@ -177,12 +177,15 @@ Status DBImpl::GetLiveFilesQuick(std::vector<std::string>& ret,
   }
 
   ret.clear();
-  ret.reserve(live.size() + 2); //*.sst + CURRENT + MANIFEST
+  ret.reserve(live.size() + 3); //*.sst + CURRENT + MANIFEST + OPTIONS
 
   // Put current and manifest files firstly to make them copied quickly,
   // because the manifest file may be deleted when copying sstables.
+  // TODO(qinzuoyan): but now it may be not necessary because the manifest file
+  // must not be deleted when copying sstables..
   ret.push_back(CurrentFileName(""));
   ret.push_back(DescriptorFileName("", versions_->manifest_file_number()));
+  ret.push_back(OptionsFileName("", versions_->options_file_number()));
 
   // create names of the live files. The names are not absolute
   // paths, instead they are relative to dbname_;
