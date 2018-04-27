@@ -438,7 +438,7 @@ TEST_F(CheckpointTest, CurrentFileModifiedWhileCheckpointing) {
   rocksdb::port::Thread t([&]() {
     Checkpoint* checkpoint;
     ASSERT_OK(Checkpoint::Create(db_, &checkpoint));
-    ASSERT_EQ(Status::NoNeedOperate(), checkpoint->CreateCheckpoint(kSnapshotName));
+    ASSERT_OK(checkpoint->CreateCheckpoint(kSnapshotName));
     delete checkpoint;
   });
   TEST_SYNC_POINT(

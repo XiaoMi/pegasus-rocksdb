@@ -1946,7 +1946,7 @@ TEST_P(DBCompactionTestWithParam, ConvertCompactionStyle) {
     ASSERT_OK(Put(Key(i), RandomString(&rnd, 10000)));
   }
   dbfull()->Flush(FlushOptions());
-  ASSERT_TRUE(Flush().IsNoNeedOperate());
+  ASSERT_OK(Flush(1));
   dbfull()->TEST_WaitForCompact();
 
   for (int i = 1; i < options.num_levels; i++) {
