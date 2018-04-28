@@ -761,7 +761,6 @@ Status DBImpl::ReFitLevel(ColumnFamilyData* cfd, int level, int target_level) {
 
   VersionEdit edit;
   edit.SetColumnFamily(cfd->GetID());
-  edit.SetLastManualCompactFinishTime(env_->NowMicros()/1000);
   if (to_level != level) {
     ROCKS_LOG_DEBUG(immutable_db_options_.info_log,
                     "[%s] Before refitting:\n%s", cfd->GetName().c_str(),
@@ -779,7 +778,7 @@ Status DBImpl::ReFitLevel(ColumnFamilyData* cfd, int level, int target_level) {
   ROCKS_LOG_DEBUG(immutable_db_options_.info_log,
                   "[%s] Apply version edit:\n%s", cfd->GetName().c_str(),
                   edit.DebugString().data());
-
+  versions_->GetColumnFamilySet()->SetLastManualCompactFinishTime(env_->NowMicros()/1000);
   status = versions_->LogAndApply(cfd, mutable_cf_options, &edit, &mutex_,
                                   directories_.GetDbDir());
   InstallSuperVersionAndScheduleWork(cfd, &sv_context, mutable_cf_options);

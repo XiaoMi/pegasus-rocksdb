@@ -2824,6 +2824,9 @@ void VersionSet::LogAndApplyHelper(ColumnFamilyData* cfd,
   column_family_set_->GetDefault()->current()->GetLastFlushSeqDecree(&seq, &d);
   edit->UpdateLastFlushSeqDecree(seq, d);
 
+  uint64_t ms = column_family_set_->GetLastManualCompactFinishTime();
+  edit->SetLastManualCompactFinishTime(ms);
+
   builder->Apply(edit);
 }
 
