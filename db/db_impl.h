@@ -850,6 +850,8 @@ class DBImpl : public DB {
   // REQUIRES: mutex_ held
   void WaitForIngestFile();
 
+  Status UpdateManualCompactTime(ColumnFamilyHandle* column_family);
+
 #else
   // IngestExternalFile is not supported in ROCKSDB_LITE so this function
   // will be no-op

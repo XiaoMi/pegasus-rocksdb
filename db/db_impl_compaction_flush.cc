@@ -276,6 +276,35 @@ void DBImpl::NotifyOnFlushCompleted(ColumnFamilyData* cfd,
 #endif  // ROCKSDB_LITE
 }
 
+Status DBImpl::UpdateManualCompactTime(ColumnFamilyHandle* column_family) {
+  auto cfh = reinterpret_cast<ColumnFamilyHandleImpl*>(column_family);
+  auto cfd = cfh->cfd();
+  uint64_t ms = env_->NowMicros() / 1000;
+
+  SuperVersionContext sv_context(/* create_superversion */ true);
+
+  InstrumentedMutexLock guard_lock(&mutex_);
+
+  const MutableCFOptions mutable_cf_options = *cfd->GetLatestMutableCFOptions();
+
+  versions_->GetColumnFamilySet()->SetLastManualCompactFinishTime(ms);
+
+  VersionEdit edit;
+  edit.SetColumnFamily(cfd->GetID());
+  edit.SetLastManualCompactFinishTime(ms);
+  Status status = versions_->LogAndApply(cfd, mutable_cf_options, &edit, &mutex_,
+                                         directories_.GetDbDir());
+  ROCKS_LOG_DEBUG(immutable_db_options_.info_log,
+                  "[%s] Apply version edit:\n%s", cfd->GetName().c_str(),
+                  edit.DebugString().data());
+
+  InstallSuperVersionAndScheduleWork(cfd, &sv_context, mutable_cf_options);
+
+  sv_context.Clean();
+
+  return status;
+}
+
 Status DBImpl::CompactRange(const CompactRangeOptions& options,
                             ColumnFamilyHandle* column_family,
                             const Slice* begin, const Slice* end) {
@@ -383,6 +412,9 @@ Status DBImpl::CompactRange(const CompactRangeOptions& options,
                    cfd->current()->storage_info()->LevelSummary(&tmp));
     ContinueBackgroundWork();
   }
+
+  s = UpdateManualCompactTime(column_family);
+
   LogFlush(immutable_db_options_.info_log);
 
   {
@@ -758,14 +790,13 @@ Status DBImpl::ReFitLevel(ColumnFamilyData* cfd, int level, int target_level) {
       }
     }
   }
-
-  VersionEdit edit;
-  edit.SetColumnFamily(cfd->GetID());
   if (to_level != level) {
     ROCKS_LOG_DEBUG(immutable_db_options_.info_log,
                     "[%s] Before refitting:\n%s", cfd->GetName().c_str(),
                     cfd->current()->DebugString().data());
 
+    VersionEdit edit;
+    edit.SetColumnFamily(cfd->GetID());
     for (const auto& f : vstorage->LevelFiles(level)) {
       edit.DeleteFile(level, f->fd.GetNumber());
       edit.AddFile(to_level, f->fd.GetNumber(), f->fd.GetPathId(),
@@ -773,23 +804,22 @@ Status DBImpl::ReFitLevel(ColumnFamilyData* cfd, int level, int target_level) {
                    f->smallest_seqno, f->largest_seqno,
                    f->marked_for_compaction);
     }
-  }
-
-  ROCKS_LOG_DEBUG(immutable_db_options_.info_log,
-                  "[%s] Apply version edit:\n%s", cfd->GetName().c_str(),
-                  edit.DebugString().data());
-  versions_->GetColumnFamilySet()->SetLastManualCompactFinishTime(env_->NowMicros()/1000);
-  status = versions_->LogAndApply(cfd, mutable_cf_options, &edit, &mutex_,
-                                  directories_.GetDbDir());
-  InstallSuperVersionAndScheduleWork(cfd, &sv_context, mutable_cf_options);
-
-  ROCKS_LOG_DEBUG(immutable_db_options_.info_log, "[%s] LogAndApply: %s\n",
-                  cfd->GetName().c_str(), status.ToString().data());
-
-  if (status.ok()) {
     ROCKS_LOG_DEBUG(immutable_db_options_.info_log,
-                    "[%s] After refitting:\n%s", cfd->GetName().c_str(),
-                    cfd->current()->DebugString().data());
+                    "[%s] Apply version edit:\n%s", cfd->GetName().c_str(),
+                    edit.DebugString().data());
+
+    status = versions_->LogAndApply(cfd, mutable_cf_options, &edit, &mutex_,
+                                    directories_.GetDbDir());
+    InstallSuperVersionAndScheduleWork(cfd, &sv_context, mutable_cf_options);
+
+    ROCKS_LOG_DEBUG(immutable_db_options_.info_log, "[%s] LogAndApply: %s\n",
+                    cfd->GetName().c_str(), status.ToString().data());
+
+    if (status.ok()) {
+      ROCKS_LOG_DEBUG(immutable_db_options_.info_log,
+                      "[%s] After refitting:\n%s", cfd->GetName().c_str(),
+                      cfd->current()->DebugString().data());
+    }
   }
 
   sv_context.Clean();
