@@ -442,9 +442,9 @@ Status CheckpointImpl::CreateCheckpointQuick(const std::string& checkpoint_dir,
       s = Status::Corruption("Can't parse file name. This is very bad");
       break;
     }
-    // we should only get sst, manifest and current files here
+    // we should only get sst, manifest, current and options files here
     assert(type == kTableFile || type == kDescriptorFile ||
-           type == kCurrentFile);
+           type == kCurrentFile || type == kOptionsFile);
     assert(live_files[i].size() > 0 && live_files[i][0] == '/');
     const std::string& src_fname = live_files[i];
 

@@ -349,7 +349,7 @@ TEST_F(ExternalSSTFileTest, Basic) {
         std::string value = Key(k) + "_val";
         ASSERT_EQ(Get(Key(k)), value);
       }
-      ASSERT_TRUE(Flush().ok() || Flush().IsNoNeedOperate());
+      ASSERT_TRUE(Flush().ok());
       ASSERT_OK(db_->CompactRange(CompactRangeOptions(), nullptr, nullptr));
     }
 
@@ -593,7 +593,7 @@ TEST_F(ExternalSSTFileTest, AddList) {
         std::string value = Key(k) + "_val";
         ASSERT_EQ(Get(Key(k)), value);
       }
-      ASSERT_TRUE(Flush().ok() || Flush().IsNoNeedOperate());
+      ASSERT_TRUE(Flush().ok());
       ASSERT_OK(db_->CompactRange(CompactRangeOptions(), nullptr, nullptr));
     }
 
@@ -884,7 +884,7 @@ TEST_F(ExternalSSTFileTest, MultiThreaded) {
         std::string value = (k % 100 == 0) ? (key + "_new") : key;
         ASSERT_EQ(Get(key), value);
       }
-      ASSERT_TRUE(Flush().ok() || Flush().IsNoNeedOperate());
+      ASSERT_TRUE(Flush().ok());
       ASSERT_OK(db_->CompactRange(CompactRangeOptions(), nullptr, nullptr));
     }
 
