@@ -281,8 +281,6 @@ Status DBImpl::UpdateManualCompactTime(ColumnFamilyHandle* column_family) {
   auto cfd = cfh->cfd();
   uint64_t ms = env_->NowMicros() / 1000;
 
-  SuperVersionContext sv_context(/* create_superversion */ true);
-
   InstrumentedMutexLock guard_lock(&mutex_);
 
   const MutableCFOptions mutable_cf_options = *cfd->GetLatestMutableCFOptions();
@@ -297,10 +295,6 @@ Status DBImpl::UpdateManualCompactTime(ColumnFamilyHandle* column_family) {
   ROCKS_LOG_DEBUG(immutable_db_options_.info_log,
                   "[%s] Apply version edit:\n%s", cfd->GetName().c_str(),
                   edit.DebugString().data());
-
-  InstallSuperVersionAndScheduleWork(cfd, &sv_context, mutable_cf_options);
-
-  sv_context.Clean();
 
   return status;
 }
@@ -412,7 +406,9 @@ Status DBImpl::CompactRange(const CompactRangeOptions& options,
     ContinueBackgroundWork();
   }
 
-  s = UpdateManualCompactTime(column_family);
+  if (s.ok()) {
+    s = UpdateManualCompactTime(column_family);
+  }
 
   LogFlush(immutable_db_options_.info_log);
 
