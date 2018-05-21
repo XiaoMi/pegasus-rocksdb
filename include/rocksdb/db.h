@@ -889,6 +889,8 @@ class DB {
   // The value schame version.
   virtual uint32_t GetValueSchemaVersion() { return 0; }
 
+  virtual uint64_t GetLastManualCompactFinishTime() { return 0; }
+
 #ifndef ROCKSDB_LITE
 
   // Prevent file deletions. Compactions will continue to occur,

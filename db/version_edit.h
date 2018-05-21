@@ -204,6 +204,11 @@ class VersionEdit {
     value_schema_version_ = value_schema_version;
   }
 
+  void SetLastManualCompactFinishTime(uint64_t ms) {
+    has_last_manual_compact_finish_time_ = true;
+    last_manual_compact_finish_time_ = ms;
+  }
+
   bool HasLastSequence() const {
     return has_last_sequence_;
   }
@@ -316,6 +321,7 @@ class VersionEdit {
   uint64_t next_file_number_;
   uint32_t max_column_family_;
   uint32_t value_schema_version_;
+  uint64_t last_manual_compact_finish_time_;
   SequenceNumber last_sequence_;
   // Used to mark the last sequence/decree of flushed memtables.
   SequenceNumber last_flush_sequence_;
@@ -329,6 +335,7 @@ class VersionEdit {
   bool has_last_flush_seq_decree_;
   bool has_max_column_family_;
   bool has_value_schema_version_;
+  bool has_last_manual_compact_finish_time_;
 
   DeletedFileSet deleted_files_;
   std::vector<std::pair<int, FileMetaData>> new_files_;

@@ -2824,6 +2824,9 @@ void VersionSet::LogAndApplyHelper(ColumnFamilyData* cfd,
   column_family_set_->GetDefault()->current()->GetLastFlushSeqDecree(&seq, &d);
   edit->UpdateLastFlushSeqDecree(seq, d);
 
+  uint64_t ms = column_family_set_->GetLastManualCompactFinishTime();
+  edit->SetLastManualCompactFinishTime(ms);
+
   builder->Apply(edit);
 }
 
@@ -2886,12 +2889,14 @@ Status VersionSet::Recover(
   bool have_next_file = false;
   bool have_last_sequence = false;
   bool have_value_schema_version = false;
+  bool have_last_manual_compact_finish_time = false;
   uint64_t next_file = 0;
   uint64_t last_sequence = 0;
   uint64_t log_number = 0;
   uint64_t previous_log_number = 0;
   uint32_t max_column_family = 0;
   uint32_t value_schema_version = 0;
+  uint64_t last_manual_compact_finish_time = 0;
   std::unordered_map<uint32_t, BaseReferencedVersionBuilder*> builders;
   std::unordered_map<uint32_t, std::pair<uint64_t, uint64_t>> last_flush_seq_decree_map;
 
@@ -3038,6 +3043,11 @@ Status VersionSet::Recover(
         have_value_schema_version = true;
       }
 
+      if (edit.has_last_manual_compact_finish_time_) {
+        last_manual_compact_finish_time = edit.last_manual_compact_finish_time_;
+        have_last_manual_compact_finish_time = true;
+      }
+
       if (edit.has_last_sequence_) {
         last_sequence = edit.last_sequence_;
         have_last_sequence = true;
@@ -3063,6 +3073,10 @@ Status VersionSet::Recover(
       s = Status::Corruption("no last-sequence-number entry in descriptor");
     } else if (!have_value_schema_version) {
       s = Status::Corruption("no value-schema-version entry in descriptor");
+    } else if (!have_last_manual_compact_finish_time) {
+      ROCKS_LOG_WARN(db_options_->info_log,
+                     "no last-manual-compact-finish-time entry in descriptor,"
+                     " it can be only occurred when update from a lower version");
     }
 
     if (!have_prev_log_number) {
@@ -3071,6 +3085,7 @@ Status VersionSet::Recover(
 
     column_family_set_->UpdateMaxColumnFamily(max_column_family);
     column_family_set_->SetValueSchemaVersion(value_schema_version);
+    column_family_set_->SetLastManualCompactFinishTime(last_manual_compact_finish_time);
 
     MarkFileNumberUsed(previous_log_number);
     MarkFileNumberUsed(log_number);
@@ -3147,13 +3162,15 @@ Status VersionSet::Recover(
         "last_sequence is %lu, last_flush_sequence is %lu, log_number is %lu,"
         "prev_log_number is %lu,"
         "max_column_family is %u,"
-        "value_schema_version is %u\n",
+        "value_schema_version is %u,"
+        "last_manual_compact_finish_time is %lu\n",
         manifest_filename.c_str(), (unsigned long)manifest_file_number_,
         (unsigned long)next_file_number_.load(), (unsigned long)last_sequence_,
         (unsigned long)LastFlushSequence(),
         (unsigned long)log_number, (unsigned long)prev_log_number_,
         column_family_set_->GetMaxColumnFamily(),
-        column_family_set_->GetValueSchemaVersion());
+        column_family_set_->GetValueSchemaVersion(),
+        column_family_set_->GetLastManualCompactFinishTime());
 
     // for pegasus, we have disabled WAL, so we need to reset last_sequence to
     // last_flush_sequence
@@ -3480,6 +3497,10 @@ Status VersionSet::DumpManifest(Options& options, std::string& dscname,
       if (edit.has_value_schema_version_) {
         column_family_set_->SetValueSchemaVersion(edit.value_schema_version_);
       }
+
+      if (edit.has_last_manual_compact_finish_time_) {
+        column_family_set_->SetLastManualCompactFinishTime(edit.last_manual_compact_finish_time_);
+      }
     }
   }
   file_reader.reset();
@@ -3547,10 +3568,12 @@ Status VersionSet::DumpManifest(Options& options, std::string& dscname,
     auto& p = last_flush_seq_decree_map[0]; // default column family
     printf(
         "next_file_number %lu last_sequence %lu last_flush_sequence %lu "
-        "last_flush_decree %lu prev_log_number %lu max_column_family %u value_schema_version %u\n",
+        "last_flush_decree %lu prev_log_number %lu max_column_family %u value_schema_version %u "
+        "last_manual_compact_finish_time %lu\n",
         (unsigned long)next_file_number_.load(), (unsigned long)last_sequence,
         (unsigned long)p.first, (unsigned long)p.second, (unsigned long)previous_log_number,
-        column_family_set_->GetMaxColumnFamily(), column_family_set_->GetValueSchemaVersion());
+        column_family_set_->GetMaxColumnFamily(), column_family_set_->GetValueSchemaVersion(),
+        column_family_set_->GetLastManualCompactFinishTime());
   }
 
   return s;

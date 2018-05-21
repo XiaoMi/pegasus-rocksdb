@@ -235,6 +235,8 @@ class DBImpl : public DB {
 
   virtual uint32_t GetValueSchemaVersion() override;
 
+  virtual uint64_t GetLastManualCompactFinishTime() override;
+
 #ifndef ROCKSDB_LITE
   using DB::ResetStats;
   virtual Status ResetStats() override;
@@ -847,6 +849,8 @@ class DBImpl : public DB {
   // Wait for current IngestExternalFile() calls to finish.
   // REQUIRES: mutex_ held
   void WaitForIngestFile();
+
+  Status UpdateManualCompactTime(ColumnFamilyHandle* column_family);
 
 #else
   // IngestExternalFile is not supported in ROCKSDB_LITE so this function

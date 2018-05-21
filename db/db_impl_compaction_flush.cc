@@ -276,6 +276,29 @@ void DBImpl::NotifyOnFlushCompleted(ColumnFamilyData* cfd,
 #endif  // ROCKSDB_LITE
 }
 
+Status DBImpl::UpdateManualCompactTime(ColumnFamilyHandle* column_family) {
+  auto cfh = reinterpret_cast<ColumnFamilyHandleImpl*>(column_family);
+  auto cfd = cfh->cfd();
+  uint64_t ms = env_->NowMicros() / 1000;
+
+  InstrumentedMutexLock guard_lock(&mutex_);
+
+  const MutableCFOptions mutable_cf_options = *cfd->GetLatestMutableCFOptions();
+
+  versions_->GetColumnFamilySet()->SetLastManualCompactFinishTime(ms);
+
+  VersionEdit edit;
+  edit.SetColumnFamily(cfd->GetID());
+  edit.SetLastManualCompactFinishTime(ms);
+  Status status = versions_->LogAndApply(cfd, mutable_cf_options, &edit, &mutex_,
+                                         directories_.GetDbDir());
+  ROCKS_LOG_DEBUG(immutable_db_options_.info_log,
+                  "[%s] Apply version edit:\n%s", cfd->GetName().c_str(),
+                  edit.DebugString().data());
+
+  return status;
+}
+
 Status DBImpl::CompactRange(const CompactRangeOptions& options,
                             ColumnFamilyHandle* column_family,
                             const Slice* begin, const Slice* end) {
@@ -382,6 +405,11 @@ Status DBImpl::CompactRange(const CompactRangeOptions& options,
                    cfd->current()->storage_info()->LevelSummary(&tmp));
     ContinueBackgroundWork();
   }
+
+  if (s.ok()) {
+    s = UpdateManualCompactTime(column_family);
+  }
+
   LogFlush(immutable_db_options_.info_log);
 
   {

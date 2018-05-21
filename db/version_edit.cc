@@ -41,6 +41,7 @@ enum Tag {
   kColumnFamilyDrop = 202,
   kMaxColumnFamily = 203,
   kValueSchemaVersion = 204,
+  kLastManualCompactFinishTime = 205,
 };
 
 enum CustomTag {
@@ -68,6 +69,7 @@ void VersionEdit::Clear() {
   next_file_number_ = 0;
   max_column_family_ = 0;
   value_schema_version_ = 0;
+  last_manual_compact_finish_time_ = 0;
   has_comparator_ = false;
   has_log_number_ = false;
   has_prev_log_number_ = false;
@@ -76,6 +78,7 @@ void VersionEdit::Clear() {
   has_last_flush_seq_decree_ = false;
   has_max_column_family_ = false;
   has_value_schema_version_ = false;
+  has_last_manual_compact_finish_time_ = false;
   deleted_files_.clear();
   new_files_.clear();
   column_family_ = 0;
@@ -112,6 +115,10 @@ bool VersionEdit::EncodeTo(std::string* dst) const {
   if (has_value_schema_version_) {
     PutVarint32(dst, kValueSchemaVersion);
     PutVarint32(dst, value_schema_version_);
+  }
+  if (has_last_manual_compact_finish_time_) {
+    PutVarint32(dst, kLastManualCompactFinishTime);
+    PutVarint64(dst, last_manual_compact_finish_time_);
   }
 
   for (const auto& deleted : deleted_files_) {
@@ -363,6 +370,14 @@ Status VersionEdit::DecodeFrom(const Slice& src) {
         }
         break;
 
+      case kLastManualCompactFinishTime:
+        if (GetVarint64(&input, &last_manual_compact_finish_time_)) {
+          has_last_manual_compact_finish_time_ = true;
+        } else {
+          msg = "last manual compact finish time";
+        }
+        break;
+
       case kCompactPointer:
         if (GetLevel(&input, &level, &msg) &&
             GetInternalKey(&input, &key)) {
@@ -563,6 +578,10 @@ std::string VersionEdit::DebugString(bool hex_key) const {
     r.append("\n  ValueSchemaVersion: ");
     AppendNumberTo(&r, value_schema_version_);
   }
+  if (has_last_manual_compact_finish_time_) {
+    r.append("\n  LastManualCompactFinishTime: ");
+    AppendNumberTo(&r, last_manual_compact_finish_time_);
+  }
   r.append("\n}\n");
   return r;
 }
@@ -638,6 +657,9 @@ std::string VersionEdit::DebugJSON(int edit_num, bool hex_key) const {
   }
   if (has_value_schema_version_) {
     jw << "ValueSchemaVersion" << value_schema_version_;
+  }
+  if (has_last_manual_compact_finish_time_) {
+    jw << "LastManualCompactFinishTime" << last_manual_compact_finish_time_;
   }
 
   jw.EndObject();
