@@ -81,6 +81,7 @@ using GFLAGS::RegisterFlagValidator;
 using GFLAGS::SetUsageMessage;
 
 #include "pegasus/client.h"
+
 using namespace ::pegasus;
 
 DEFINE_string(pegasus_config, "replication/config-client.ini", "pegasus config file");
@@ -166,7 +167,7 @@ DEFINE_string(
     " port)\n");
 
 DEFINE_int64(num, 10000, "Number of key/values to place in database");
-
+DEFINE_int64(sortkey_count_per_hashkey, 100, "Number of sort key per hash key");
 DEFINE_int64(numdistinct, 1000,
              "Number of distinct keys to use. Used in RandomWithVerify to "
              "read/write on fewer keys so that gets are more likely to find the"
@@ -2388,6 +2389,10 @@ void VerifyDBFromDB(std::string& truth_db_name) {
         method = &Benchmark::WriteRandom;
       } else if (name == "fillrandom_pegasus") {
         method = &Benchmark::WriteRandomRRDB;
+      } else if (name == "fill_for_scan_pegasus") {
+        method = &Benchmark::WriteForScanRRDB;
+      } else if (name == "scan_pegasus") {
+        method = &Benchmark::ScanRRDB;
       } else if (name == "filluniquerandom") {
         fresh_db = true;
         if (num_threads > 1) {
@@ -3421,6 +3426,14 @@ void VerifyDBFromDB(std::string& truth_db_name) {
     DoWriteRRDB(thread, RANDOM);
   }
 
+  void WriteForScanRRDB(ThreadState* thread) {
+    DoWriteForScanRRDB(thread);
+  }
+
+  void ScanRRDB(ThreadState* thread) {
+    DoScanRRDB(thread);
+  }
+
   void WriteUniqueRandom(ThreadState* thread) {
     DoWrite(thread, UNIQUE_RANDOM);
   }
@@ -3993,6 +4006,143 @@ void VerifyDBFromDB(std::string& truth_db_name) {
           exit(1);
         } else {
           fprintf(stderr, "Set timeout, retry(%d)\n", try_count);
+        }
+      }
+      thread->stats.FinishedOps(nullptr, nullptr, 1);
+    }
+    thread->stats.AddBytes(bytes);
+  }
+
+  void DoWriteForScanRRDB(ThreadState* thread) {
+    const int test_duration = 0;
+    const int64_t num_ops = writes_ == 0 ? num_ : writes_;
+
+    std::unique_ptr<KeyGenerator> key_gen;
+    int64_t max_ops = num_ops;
+    int64_t ops_per_stage = max_ops;
+
+    Duration duration(test_duration, max_ops, ops_per_stage);
+    key_gen.reset(new KeyGenerator(&(thread->rand), SEQUENTIAL, num_, ops_per_stage));
+
+    if (num_ != FLAGS_num) {
+      char msg[100];
+      snprintf(msg, sizeof(msg), "(%" PRIu64 " ops)", num_);
+      thread->stats.AddMessage(msg);
+    }
+
+    RandomGenerator gen;
+    int64_t bytes = 0;
+    pegasus_client* client = pegasus_client_factory::get_client(
+                FLAGS_pegasus_cluster_name.c_str(), FLAGS_pegasus_app_name.c_str());
+    if (client == nullptr) {
+      fprintf(stderr, "create client error\n");
+      exit(1);
+    }
+
+    std::unique_ptr<const char[]> key_guard;
+    Slice key = AllocateKey(&key_guard);
+    while (!duration.Done(1)) {
+      if (thread->shared->write_rate_limiter.get() != nullptr) {
+        thread->shared->write_rate_limiter->Request(value_size_ + key_size_,
+                                                    Env::IO_HIGH);
+      }
+      int64_t rand_num = key_gen->Next();
+      GenerateKeyFromInt(rand_num, FLAGS_num, &key);
+      std::map<std::string, std::string> kvs;
+      for (int i = 0; i < FLAGS_sortkey_count_per_hashkey; ++i) {
+          std::string i_str = std::to_string(i);
+          kvs.emplace(i_str, i_str);
+      }
+
+      int try_count = 0;
+      while (true) {
+        try_count++;
+        int ret = client->multi_set(key.ToString(), kvs,
+                              FLAGS_pegasus_timeout_ms);
+        if (ret == ::pegasus::PERR_OK) {
+          bytes += value_size_ + key_size_;
+          break;
+        } else if (ret != ::pegasus::PERR_TIMEOUT || try_count > 3) {
+          fprintf(stderr, "MultiSet returned an error: %s\n", client->get_error_string(ret));
+          exit(1);
+        } else {
+          fprintf(stderr, "MultiSet timeout, retry(%d)\n", try_count);
+        }
+      }
+      thread->stats.FinishedOps(nullptr, nullptr, 1);
+    }
+    thread->stats.AddBytes(bytes);
+  }
+
+  void DoScanRRDB(ThreadState* thread) {
+    const int test_duration = 0;
+    const int64_t num_ops = writes_ == 0 ? num_ : writes_;
+
+    std::unique_ptr<KeyGenerator> key_gen;
+    int64_t max_ops = num_ops;
+    int64_t ops_per_stage = max_ops;
+
+    Duration duration(test_duration, max_ops, ops_per_stage);
+    key_gen.reset(new KeyGenerator(&(thread->rand), RANDOM, num_, ops_per_stage));
+
+    if (num_ != FLAGS_num) {
+      char msg[100];
+      snprintf(msg, sizeof(msg), "(%" PRIu64 " ops)", num_);
+      thread->stats.AddMessage(msg);
+    }
+
+    RandomGenerator gen;
+    int64_t bytes = 0;
+    pegasus_client* client = pegasus_client_factory::get_client(
+                FLAGS_pegasus_cluster_name.c_str(), FLAGS_pegasus_app_name.c_str());
+    if (client == nullptr) {
+      fprintf(stderr, "create client error\n");
+      exit(1);
+    }
+
+    std::unique_ptr<const char[]> key_guard;
+    Slice key = AllocateKey(&key_guard);
+    while (!duration.Done(1)) {
+      if (thread->shared->write_rate_limiter.get() != nullptr) {
+        thread->shared->write_rate_limiter->Request(value_size_ + key_size_,
+                                                    Env::IO_HIGH);
+      }
+      int64_t rand_num = key_gen->Next();
+      GenerateKeyFromInt(rand_num, FLAGS_num, &key);
+
+      int try_count = 0;
+      pegasus::pegasus_client::pegasus_scanner *scanner = nullptr;
+      while (true) {
+        try_count++;
+        int ret = client->get_scanner(key.ToString(), "", "", pegasus::pegasus_client::scan_options(), scanner);
+        if (ret == ::pegasus::PERR_OK) {
+          break;
+        } else if (ret != ::pegasus::PERR_TIMEOUT || try_count > 3) {
+          fprintf(stderr, "Scan returned an error: %s\n", client->get_error_string(ret));
+          exit(1);
+        } else {
+          fprintf(stderr, "Scan timeout, retry(%d)\n", try_count);
+        }
+      }
+
+      assert(scanner != nullptr);
+      try_count = 0;
+      std::string hashkey;
+      std::string sortkey;
+      std::string value;
+      while (true) {
+        try_count++;
+        int ret = scanner->next(hashkey, sortkey, value);
+        if (ret == ::pegasus::PERR_OK || ret == pegasus::PERR_SCAN_COMPLETE) {
+          bytes += sortkey.length() + value.length();
+          if (ret == pegasus::PERR_SCAN_COMPLETE) {
+            break;
+          }
+        } else if (ret != ::pegasus::PERR_TIMEOUT || try_count > 3) {
+          fprintf(stderr, "Scan returned an error: %s\n", client->get_error_string(ret));
+          exit(1);
+        } else {
+          fprintf(stderr, "Scan timeout, retry(%d)\n", try_count);
         }
       }
       thread->stats.FinishedOps(nullptr, nullptr, 1);
