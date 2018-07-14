@@ -11,7 +11,6 @@
 #define __STDC_FORMAT_MACROS
 #endif
 
-#define GFLAGS 1
 #ifdef GFLAGS
 #ifdef NUMA
 #include <numa.h>
@@ -81,47 +80,27 @@ using GFLAGS::ParseCommandLineFlags;
 using GFLAGS::RegisterFlagValidator;
 using GFLAGS::SetUsageMessage;
 
+#include "pegasus/client.h"
+
+using namespace ::pegasus;
+
+DEFINE_string(pegasus_config, "replication/config-client.ini", "pegasus config file");
+DEFINE_string(pegasus_cluster_name, "mycluster", "pegasus cluster name");
+DEFINE_string(pegasus_app_name, "pegasus.instance0", "pegasus app name");
+DEFINE_int32(pegasus_timeout_ms, 10000, "pegasus read/write timeout in milliseconds");
+
 DEFINE_string(
     benchmarks,
-    "fillseq,"
-    "fillseqdeterministic,"
-    "fillsync,"
-    "fillrandom,"
-    "filluniquerandomdeterministic,"
-    "overwrite,"
-    "readrandom,"
-    "newiterator,"
-    "newiteratorwhilewriting,"
-    "seekrandom,"
-    "seekrandomwhilewriting,"
-    "seekrandomwhilemerging,"
-    "readseq,"
-    "readreverse,"
-    "compact,"
-    "compactall,"
-    "readrandom,"
-    "multireadrandom,"
-    "readseq,"
-    "readtocache,"
-    "readreverse,"
-    "readwhilewriting,"
-    "readwhilemerging,"
-    "readrandomwriterandom,"
-    "updaterandom,"
-    "randomwithverify,"
-    "fill100K,"
-    "crc32c,"
-    "xxhash,"
-    "compress,"
-    "uncompress,"
-    "acquireload,"
-    "fillseekseq,"
-    "randomtransaction,"
-    "randomreplacekeys,"
-    "timeseries",
+    "fillseq_pegasus,filluniquerandom_pegasus,readrandom_pegasus,deleteseq_pegasus",
 
     "Comma-separated list of operations to run in the specified"
     " order. Available benchmarks:\n"
+    "\tfillseq_pegasus          -- pegasus write N values in sequential key order\n"
+    "\tfillrandom_pegasus       -- pegasus write N values in random key order\n"
+    "\tfilluniquerandom_pegasus -- pegasus write N values in unique random key order\n"
+    "\treadrandom_pegasus       -- pegasus read N times in random order\n"
+    "\tdeleteseq_pegasus        -- pegasus delete N keys in sequential order\n"
+    "\tdeleterandom_pegasus     -- pegasus delete N keys in random order\n"
     "\tfillseq       -- write N values in sequential key"
     " order in async mode\n"
     "\tfillseqdeterministic       -- write N values in the specified"
@@ -187,8 +166,8 @@ DEFINE_string(
     "\theapprofile -- Dump a heap profile (if supported by this"
     " port)\n");
 
-DEFINE_int64(num, 1000000, "Number of key/values to place in database");
-
+DEFINE_int64(num, 10000, "Number of key/values to place in database");
+DEFINE_int64(sortkey_count_per_hashkey, 100, "Number of sort key per hash key");
 DEFINE_int64(numdistinct, 1000,
              "Number of distinct keys to use. Used in RandomWithVerify to "
              "read/write on fewer keys so that gets are more likely to find the"
@@ -2311,7 +2290,9 @@ void VerifyDBFromDB(std::string& truth_db_name) {
     if (!SanityCheck()) {
       exit(1);
     }
-    Open(&open_options_);
+    if (FLAGS_benchmarks.find("_pegasus") == std::string::npos) {
+      Open(&open_options_);
+    }
     PrintHeader();
     std::stringstream benchmark_stream(FLAGS_benchmarks);
     std::string name;
@@ -2397,6 +2378,8 @@ void VerifyDBFromDB(std::string& truth_db_name) {
       } else if (name == "fillseq") {
         fresh_db = true;
         method = &Benchmark::WriteSeq;
+      } else if (name == "fillseq_pegasus") {
+        method = &Benchmark::WriteSeqRRDB;
       } else if (name == "fillbatch") {
         fresh_db = true;
         entries_per_batch_ = 1000;
@@ -2404,6 +2387,12 @@ void VerifyDBFromDB(std::string& truth_db_name) {
       } else if (name == "fillrandom") {
         fresh_db = true;
         method = &Benchmark::WriteRandom;
+      } else if (name == "fillrandom_pegasus") {
+        method = &Benchmark::WriteRandomRRDB;
+      } else if (name == "fill_for_scan_pegasus") {
+        method = &Benchmark::WriteForScanRRDB;
+      } else if (name == "scan_pegasus") {
+        method = &Benchmark::ScanRRDB;
       } else if (name == "filluniquerandom") {
         fresh_db = true;
         if (num_threads > 1) {
@@ -2413,6 +2402,14 @@ void VerifyDBFromDB(std::string& truth_db_name) {
           num_threads = 1;
         }
         method = &Benchmark::WriteUniqueRandom;
+      } else if (name == "filluniquerandom_pegasus") {
+        if (num_threads > 1) {
+          fprintf(stderr,
+                  "filluniquerandom_pegasus multithreaded not supported"
+                  ", use 1 thread");
+          num_threads = 1;
+        }
+        method = &Benchmark::WriteUniqueRandomRRDB;
       } else if (name == "overwrite") {
         method = &Benchmark::WriteRandom;
       } else if (name == "fillsync") {
@@ -2435,6 +2432,8 @@ void VerifyDBFromDB(std::string& truth_db_name) {
         method = &Benchmark::ReadReverse;
       } else if (name == "readrandom") {
         method = &Benchmark::ReadRandom;
+      } else if (name == "readrandom_pegasus") {
+        method = &Benchmark::ReadRandomRRDB;
       } else if (name == "readrandomfast") {
         method = &Benchmark::ReadRandomFast;
       } else if (name == "multireadrandom") {
@@ -2462,8 +2461,12 @@ void VerifyDBFromDB(std::string& truth_db_name) {
         method = &Benchmark::ReadRandom;
       } else if (name == "deleteseq") {
         method = &Benchmark::DeleteSeq;
+      } else if (name == "deleteseq_pegasus") {
+        method = &Benchmark::DeleteSeqRRDB;
       } else if (name == "deleterandom") {
         method = &Benchmark::DeleteRandom;
+      } else if (name == "deleterandom_pegasus") {
+        method = &Benchmark::DeleteRandomRRDB;
       } else if (name == "readwhilewriting") {
         num_threads++;  // Add extra thread for writing
         method = &Benchmark::ReadWhileWriting;
@@ -2564,7 +2567,9 @@ void VerifyDBFromDB(std::string& truth_db_name) {
       }
 
       if (method != nullptr) {
-        fprintf(stdout, "DB path: [%s]\n", FLAGS_db.c_str());
+        if (FLAGS_benchmarks.find("_pegasus") == std::string::npos) {
+          fprintf(stdout, "DB path: [%s]\n", FLAGS_db.c_str());
+        }
         if (num_warmup > 0) {
           printf("Warming up benchmark by running %d times\n", num_warmup);
         }
@@ -3409,12 +3414,32 @@ void VerifyDBFromDB(std::string& truth_db_name) {
     DoWrite(thread, SEQUENTIAL);
   }
 
+  void WriteSeqRRDB(ThreadState* thread) {
+    DoWriteRRDB(thread, SEQUENTIAL);
+  }
+
   void WriteRandom(ThreadState* thread) {
     DoWrite(thread, RANDOM);
   }
 
+  void WriteRandomRRDB(ThreadState* thread) {
+    DoWriteRRDB(thread, RANDOM);
+  }
+
+  void WriteForScanRRDB(ThreadState* thread) {
+    DoWriteForScanRRDB(thread);
+  }
+
+  void ScanRRDB(ThreadState* thread) {
+    DoScanRRDB(thread);
+  }
+
   void WriteUniqueRandom(ThreadState* thread) {
     DoWrite(thread, UNIQUE_RANDOM);
+  }
+
+  void WriteUniqueRandomRRDB(ThreadState* thread) {
+    DoWriteRRDB(thread, UNIQUE_RANDOM);
   }
 
   class KeyGenerator {
@@ -3933,6 +3958,198 @@ void VerifyDBFromDB(std::string& truth_db_name) {
 #endif  // ROCKSDB_LITE
   }
 
+  void DoWriteRRDB(ThreadState* thread, WriteMode write_mode) {
+    const int test_duration = write_mode == RANDOM ? FLAGS_duration : 0;
+    const int64_t num_ops = writes_ == 0 ? num_ : writes_;
+
+    std::unique_ptr<KeyGenerator> key_gen;
+    int64_t max_ops = num_ops;
+    int64_t ops_per_stage = max_ops;
+
+    Duration duration(test_duration, max_ops, ops_per_stage);
+    key_gen.reset(new KeyGenerator(&(thread->rand), write_mode, num_, ops_per_stage));
+
+    if (num_ != FLAGS_num) {
+      char msg[100];
+      snprintf(msg, sizeof(msg), "(%" PRIu64 " ops)", num_);
+      thread->stats.AddMessage(msg);
+    }
+
+    RandomGenerator gen;
+    int64_t bytes = 0;
+    pegasus_client* client = pegasus_client_factory::get_client(
+                FLAGS_pegasus_cluster_name.c_str(), FLAGS_pegasus_app_name.c_str());
+    if (client == nullptr) {
+      fprintf(stderr, "create client error\n");
+      exit(1);
+    }
+
+    std::unique_ptr<const char[]> key_guard;
+    Slice key = AllocateKey(&key_guard);
+    while (!duration.Done(1)) {
+      if (thread->shared->write_rate_limiter.get() != nullptr) {
+        thread->shared->write_rate_limiter->Request(value_size_ + key_size_,
+                                                    Env::IO_HIGH);
+      }
+      int64_t rand_num = key_gen->Next();
+      GenerateKeyFromInt(rand_num, FLAGS_num, &key);
+      int try_count = 0;
+      while (true) {
+        try_count++;
+        int ret = client->set(key.ToString(), "", gen.Generate(value_size_).ToString(),
+                              FLAGS_pegasus_timeout_ms);
+        if (ret == ::pegasus::PERR_OK) {
+          bytes += value_size_ + key_size_;
+          break;
+        } else if (ret != ::pegasus::PERR_TIMEOUT || try_count > 3) {
+          fprintf(stderr, "Set returned an error: %s\n", client->get_error_string(ret));
+          exit(1);
+        } else {
+          fprintf(stderr, "Set timeout, retry(%d)\n", try_count);
+        }
+      }
+      thread->stats.FinishedOps(nullptr, nullptr, 1);
+    }
+    thread->stats.AddBytes(bytes);
+  }
+
+  void DoWriteForScanRRDB(ThreadState* thread) {
+    const int test_duration = 0;
+    const int64_t num_ops = writes_ == 0 ? num_ : writes_;
+
+    std::unique_ptr<KeyGenerator> key_gen;
+    int64_t max_ops = num_ops;
+    int64_t ops_per_stage = max_ops;
+
+    Duration duration(test_duration, max_ops, ops_per_stage);
+    key_gen.reset(new KeyGenerator(&(thread->rand), SEQUENTIAL, num_, ops_per_stage));
+
+    if (num_ != FLAGS_num) {
+      char msg[100];
+      snprintf(msg, sizeof(msg), "(%" PRIu64 " ops)", num_);
+      thread->stats.AddMessage(msg);
+    }
+
+    RandomGenerator gen;
+    int64_t bytes = 0;
+    pegasus_client* client = pegasus_client_factory::get_client(
+                FLAGS_pegasus_cluster_name.c_str(), FLAGS_pegasus_app_name.c_str());
+    if (client == nullptr) {
+      fprintf(stderr, "create client error\n");
+      exit(1);
+    }
+
+    std::unique_ptr<const char[]> key_guard;
+    Slice key = AllocateKey(&key_guard);
+    while (!duration.Done(1)) {
+      if (thread->shared->write_rate_limiter.get() != nullptr) {
+        thread->shared->write_rate_limiter->Request(value_size_ + key_size_,
+                                                    Env::IO_HIGH);
+      }
+      int64_t rand_num = key_gen->Next();
+      GenerateKeyFromInt(rand_num, FLAGS_num, &key);
+      std::map<std::string, std::string> kvs;
+      for (int i = 0; i < FLAGS_sortkey_count_per_hashkey; ++i) {
+          std::string i_str = std::to_string(i);
+          kvs.emplace(i_str, i_str);
+      }
+
+      int try_count = 0;
+      while (true) {
+        try_count++;
+        int ret = client->multi_set(key.ToString(), kvs,
+                              FLAGS_pegasus_timeout_ms);
+        if (ret == ::pegasus::PERR_OK) {
+          bytes += value_size_ + key_size_;
+          break;
+        } else if (ret != ::pegasus::PERR_TIMEOUT || try_count > 3) {
+          fprintf(stderr, "MultiSet returned an error: %s\n", client->get_error_string(ret));
+          exit(1);
+        } else {
+          fprintf(stderr, "MultiSet timeout, retry(%d)\n", try_count);
+        }
+      }
+      thread->stats.FinishedOps(nullptr, nullptr, 1);
+    }
+    thread->stats.AddBytes(bytes);
+  }
+
+  void DoScanRRDB(ThreadState* thread) {
+    const int test_duration = 0;
+    const int64_t num_ops = writes_ == 0 ? num_ : writes_;
+
+    std::unique_ptr<KeyGenerator> key_gen;
+    int64_t max_ops = num_ops;
+    int64_t ops_per_stage = max_ops;
+
+    Duration duration(test_duration, max_ops, ops_per_stage);
+    key_gen.reset(new KeyGenerator(&(thread->rand), RANDOM, num_, ops_per_stage));
+
+    if (num_ != FLAGS_num) {
+      char msg[100];
+      snprintf(msg, sizeof(msg), "(%" PRIu64 " ops)", num_);
+      thread->stats.AddMessage(msg);
+    }
+
+    RandomGenerator gen;
+    int64_t bytes = 0;
+    pegasus_client* client = pegasus_client_factory::get_client(
+                FLAGS_pegasus_cluster_name.c_str(), FLAGS_pegasus_app_name.c_str());
+    if (client == nullptr) {
+      fprintf(stderr, "create client error\n");
+      exit(1);
+    }
+
+    std::unique_ptr<const char[]> key_guard;
+    Slice key = AllocateKey(&key_guard);
+    while (!duration.Done(1)) {
+      if (thread->shared->write_rate_limiter.get() != nullptr) {
+        thread->shared->write_rate_limiter->Request(value_size_ + key_size_,
+                                                    Env::IO_HIGH);
+      }
+      int64_t rand_num = key_gen->Next();
+      GenerateKeyFromInt(rand_num, FLAGS_num, &key);
+
+      int try_count = 0;
+      pegasus::pegasus_client::pegasus_scanner *scanner = nullptr;
+      while (true) {
+        try_count++;
+        int ret = client->get_scanner(key.ToString(), "", "", pegasus::pegasus_client::scan_options(), scanner);
+        if (ret == ::pegasus::PERR_OK) {
+          break;
+        } else if (ret != ::pegasus::PERR_TIMEOUT || try_count > 3) {
+          fprintf(stderr, "Scan returned an error: %s\n", client->get_error_string(ret));
+          exit(1);
+        } else {
+          fprintf(stderr, "Scan timeout, retry(%d)\n", try_count);
+        }
+      }
+
+      assert(scanner != nullptr);
+      try_count = 0;
+      std::string hashkey;
+      std::string sortkey;
+      std::string value;
+      while (true) {
+        try_count++;
+        int ret = scanner->next(hashkey, sortkey, value);
+        if (ret == ::pegasus::PERR_OK || ret == pegasus::PERR_SCAN_COMPLETE) {
+          bytes += sortkey.length() + value.length();
+          if (ret == pegasus::PERR_SCAN_COMPLETE) {
+            break;
+          }
+        } else if (ret != ::pegasus::PERR_TIMEOUT || try_count > 3) {
+          fprintf(stderr, "Scan returned an error: %s\n", client->get_error_string(ret));
+          exit(1);
+        } else {
+          fprintf(stderr, "Scan timeout, retry(%d)\n", try_count);
+        }
+      }
+      thread->stats.FinishedOps(nullptr, nullptr, 1);
+    }
+    thread->stats.AddBytes(bytes);
+  }
+
   void ReadSequential(ThreadState* thread) {
     if (db_.db != nullptr) {
       ReadSequential(thread, db_.db);
@@ -4126,6 +4343,60 @@ void VerifyDBFromDB(std::string& truth_db_name) {
     thread->stats.AddMessage(msg);
 
     if (FLAGS_perf_level > rocksdb::PerfLevel::kDisable) {
+      thread->stats.AddMessage(get_perf_context()->ToString());
+    }
+  }
+
+  void ReadRandomRRDB(ThreadState* thread) {
+    int64_t read = 0;
+    int64_t found = 0;
+    int64_t bytes = 0;
+    std::unique_ptr<const char[]> key_guard;
+    Slice key = AllocateKey(&key_guard);
+    pegasus_client* client = pegasus_client_factory::get_client(
+                FLAGS_pegasus_cluster_name.c_str(), FLAGS_pegasus_app_name.c_str());
+    if (client == nullptr) {
+      fprintf(stderr, "Create client error\n");
+      exit(1);
+    }
+
+    Duration duration(FLAGS_duration, reads_);
+    while (!duration.Done(1)) {
+      // We use same key_rand as seed for key and column family so that we can
+      // deterministically find the cfh corresponding to a particular key, as it
+      // is done in DoWrite method.
+      int64_t key_rand = GetRandomKey(&thread->rand);
+      GenerateKeyFromInt(key_rand, FLAGS_num, &key);
+      read++;
+      int try_count = 0;
+      while (true) {
+        try_count++;
+        std::string value;
+        int ret = client->get(key.ToString(), "", value, FLAGS_pegasus_timeout_ms);
+        if (ret == ::pegasus::PERR_OK) {
+          found++;
+          bytes += key.size() + value.size();
+          break;
+        } else if (ret == ::pegasus::PERR_NOT_FOUND) {
+          break;
+        } else if (ret != ::pegasus::PERR_TIMEOUT || try_count > 3) {
+          fprintf(stderr, "Get returned an error: %s\n", client->get_error_string(ret));
+          exit(1);
+        } else {
+          fprintf(stderr, "Get timeout, retry(%d)\n", try_count);
+        }
+      }
+      thread->stats.FinishedOps(nullptr, nullptr, 1);
+    }
+
+    char msg[100];
+    snprintf(msg, sizeof(msg), "(%" PRIu64 " of %" PRIu64 " found)",
+             found, read);
+
+    thread->stats.AddBytes(bytes);
+    thread->stats.AddMessage(msg);
+
+    if (FLAGS_perf_level > 0) {
       thread->stats.AddMessage(get_perf_context()->ToString());
     }
   }
@@ -4328,12 +4599,54 @@ void VerifyDBFromDB(std::string& truth_db_name) {
     }
   }
 
+  void DoDeleteRRDB(ThreadState* thread, bool seq) {
+    Duration duration(seq ? 0 : FLAGS_duration, num_);
+    int64_t i = 0;
+    std::unique_ptr<const char[]> key_guard;
+    Slice key = AllocateKey(&key_guard);
+
+    pegasus_client* client = pegasus_client_factory::get_client(
+                FLAGS_pegasus_cluster_name.c_str(), FLAGS_pegasus_app_name.c_str());
+    if (client == nullptr) {
+      fprintf(stderr, "create client error\n");
+      exit(1);
+    }
+
+    while (!duration.Done(1)) {
+      const int64_t k = seq ? i : (thread->rand.Next() % FLAGS_num);
+      GenerateKeyFromInt(k, FLAGS_num, &key);
+      int try_count = 0;
+      while (true) {
+        try_count++;
+        int ret = client->del(key.ToString(), "", FLAGS_pegasus_timeout_ms);
+        if (ret == ::pegasus::PERR_OK) {
+          break;
+        } else if (ret != ::pegasus::PERR_TIMEOUT || try_count > 3) {
+          fprintf(stderr, "Del returned an error: %s\n", client->get_error_string(ret));
+          exit(1);
+        } else {
+          fprintf(stderr, "Get timeout, retry(%d)\n", try_count);
+        }
+      }
+      thread->stats.FinishedOps(nullptr, nullptr, 1);
+      i++;
+    }
+  }
+
   void DeleteSeq(ThreadState* thread) {
     DoDelete(thread, true);
   }
 
+  void DeleteSeqRRDB(ThreadState* thread) {
+    DoDeleteRRDB(thread, true);
+  }
+
   void DeleteRandom(ThreadState* thread) {
     DoDelete(thread, false);
+  }
+
+  void DeleteRandomRRDB(ThreadState* thread) {
+    DoDeleteRRDB(thread, false);
   }
 
   void ReadWhileWriting(ThreadState* thread) {
@@ -5226,6 +5539,8 @@ void VerifyDBFromDB(std::string& truth_db_name) {
   }
 };
 
+}  // namespace rocksdb
+
 int db_bench_tool(int argc, char** argv) {
   rocksdb::port::InstallStackTraceHandler();
   static bool initialized = false;
@@ -5235,6 +5550,15 @@ int db_bench_tool(int argc, char** argv) {
     initialized = true;
   }
   ParseCommandLineFlags(&argc, &argv, true);
+
+  bool init = ::pegasus::pegasus_client_factory::initialize(FLAGS_pegasus_config.c_str());
+  if (!init) {
+    fprintf(stderr, "Init pegasus error\n");
+    return -1;
+  }
+  sleep(1);
+  fprintf(stdout, "Init pegasus succeed\n");
+
   FLAGS_compaction_style_e = (rocksdb::CompactionStyle) FLAGS_compaction_style;
 #ifndef ROCKSDB_LITE
   if (FLAGS_statistics && !FLAGS_statistics_string.empty()) {
@@ -5243,9 +5567,9 @@ int db_bench_tool(int argc, char** argv) {
     exit(1);
   }
   if (!FLAGS_statistics_string.empty()) {
-    std::unique_ptr<Statistics> custom_stats_guard;
-    dbstats.reset(NewCustomObject<Statistics>(FLAGS_statistics_string,
-                                              &custom_stats_guard));
+    std::unique_ptr<rocksdb::Statistics> custom_stats_guard;
+    dbstats.reset(rocksdb::NewCustomObject<rocksdb::Statistics>(FLAGS_statistics_string,
+                                                                &custom_stats_guard));
     custom_stats_guard.release();
     if (dbstats == nullptr) {
       fprintf(stderr, "No Statistics registered matching string: %s\n",
@@ -5274,12 +5598,12 @@ int db_bench_tool(int argc, char** argv) {
     StringToCompressionType(FLAGS_compression_type.c_str());
 
 #ifndef ROCKSDB_LITE
-  std::unique_ptr<Env> custom_env_guard;
+  std::unique_ptr<rocksdb::Env> custom_env_guard;
   if (!FLAGS_hdfs.empty() && !FLAGS_env_uri.empty()) {
     fprintf(stderr, "Cannot provide both --hdfs and --env_uri.\n");
     exit(1);
   } else if (!FLAGS_env_uri.empty()) {
-    FLAGS_env = NewCustomObject<Env>(FLAGS_env_uri, &custom_env_guard);
+    FLAGS_env = rocksdb::NewCustomObject<rocksdb::Env>(FLAGS_env_uri, &custom_env_guard);
     if (FLAGS_env == nullptr) {
       fprintf(stderr, "No Env registered for URI: %s\n", FLAGS_env_uri.c_str());
       exit(1);
@@ -5332,5 +5656,12 @@ int db_bench_tool(int argc, char** argv) {
   benchmark.Run();
   return 0;
 }
-}  // namespace rocksdb
-#endif
+
+int main(int argc, char** argv) { return db_bench_tool(argc, argv); }
+#else
+#include <cstdio>
+int main() {
+  fprintf(stderr, "Please install gflags to run rocksdb tools\n");
+  return 1;
+}
+#endif  // GFLAGS
