@@ -404,7 +404,6 @@ set(SOURCES
         db/write_batch_base.cc
         db/write_controller.cc
         db/write_thread.cc
-        db/pegasus_bench.cc
         env/env.cc
         env/env_chroot.cc
         env/env_encryption.cc
@@ -662,10 +661,10 @@ if(NOT WIN32 OR ROCKSDB_INSTALL_ON_WINDOWS)
 
   set(package_config_destination ${CMAKE_INSTALL_LIBDIR}/cmake/rocksdb)
 
-#  configure_package_config_file(
-#    ${CMAKE_SOURCE_DIR}/cmake/RocksDBConfig.cmake.in RocksDBConfig.cmake
-#    INSTALL_DESTINATION ${package_config_destination}
-#  )
+  configure_package_config_file(
+    ${CMAKE_SOURCE_DIR}/cmake/RocksDBConfig.cmake.in RocksDBConfig.cmake
+    INSTALL_DESTINATION ${package_config_destination}
+  )
 
   write_basic_package_version_file(
     RocksDBConfigVersion.cmake
@@ -930,4 +929,4 @@ option(WITH_TOOLS "build with tools" ON)
 if(WITH_TOOLS)
   add_subdirectory(tools)
 endif()
-add_definitions(-DGFLAGS)
+

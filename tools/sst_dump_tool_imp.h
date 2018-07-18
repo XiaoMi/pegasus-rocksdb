@@ -62,6 +62,7 @@ class SstFileReader {
   std::string file_name_;
   uint64_t read_num_;
   bool verify_checksum_;
+  bool output_hex_;
   EnvOptions soptions_;
 
   // options_ and internal_comparator_ will also be used in

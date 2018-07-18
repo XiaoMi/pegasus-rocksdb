@@ -392,8 +392,7 @@ inline int offset_of(T1 T2::*member) {
   return int(size_t(&(obj.*member)) - size_t(&obj));
 }
 
-static std::unordered_map<std::string, OptionTypeInfo>
-        cf_options_type_info = {
+static std::unordered_map<std::string, OptionTypeInfo> cf_options_type_info = {
     /* not yet supported
     CompactionOptionsFIFO compaction_options_fifo;
     CompactionOptionsUniversal compaction_options_universal;

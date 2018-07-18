@@ -11,7 +11,6 @@
 #define __STDC_FORMAT_MACROS
 #endif
 
-#define GFLAGS 1
 #ifdef GFLAGS
 #ifdef NUMA
 #include <numa.h>
