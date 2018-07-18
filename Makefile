@@ -40,18 +40,8 @@ quoted_perl_command = $(subst ','\'',$(perl_command))
 # `make install-shared`, `make static_lib`, `make install-static` or
 # `make install`
 
-CXXFLAGS += -DPEGASUS
-
 # Set the default DEBUG_LEVEL to 1
 DEBUG_LEVEL?=1
-
-ifeq ($(MAKECMDGOALS),static_lib_debug)
-	DEBUG_LEVEL=2
-endif
-
-ifeq ($(MAKECMDGOALS),static_lib_release)
-	DEBUG_LEVEL=0
-endif
 
 ifeq ($(MAKECMDGOALS),dbg)
 	DEBUG_LEVEL=2
@@ -277,7 +267,7 @@ endif
 default: all
 
 WARNING_FLAGS = -W -Wextra -Wall -Wsign-compare -Wshadow \
-  -Wno-unused-parameter -Wno-unused-function
+  -Wno-unused-parameter
 
 ifndef DISABLE_WARNING_AS_ERROR
 	WARNING_FLAGS += -Werror
@@ -311,8 +301,8 @@ LDFLAGS += $(LUA_LIB)
 endif
 
 
-CFLAGS += $(WARNING_FLAGS) -I. -I./include -I../src/include $(PLATFORM_CCFLAGS) $(OPT)
-CXXFLAGS += $(WARNING_FLAGS) -I. -I./include -I../src/include $(PLATFORM_CXXFLAGS) $(OPT) -Woverloaded-virtual -Wnon-virtual-dtor -Wno-missing-field-initializers
+CFLAGS += $(WARNING_FLAGS) -I. -I./include $(PLATFORM_CCFLAGS) $(OPT)
+CXXFLAGS += $(WARNING_FLAGS) -I. -I./include $(PLATFORM_CXXFLAGS) $(OPT) -Woverloaded-virtual -Wnon-virtual-dtor -Wno-missing-field-initializers
 
 LDFLAGS += $(PLATFORM_LDFLAGS)
 
@@ -402,6 +392,7 @@ TESTS = \
 	db_range_del_test \
 	db_sst_test \
 	db_tailing_iter_test \
+	db_universal_compaction_test \
 	db_io_failure_test \
 	db_properties_test \
 	db_table_properties_test \
@@ -503,7 +494,6 @@ TESTS = \
 	repair_test \
 	env_timed_test \
 	write_prepared_transaction_test \
-	db_universal_compaction_test \
 
 PARALLEL_TEST = \
 	backupable_db_test \
@@ -550,12 +540,12 @@ BENCHMARKS = db_bench table_reader_bench cache_bench memtablerep_bench column_aw
 
 # if user didn't config LIBNAME, set the default
 ifeq ($(LIBNAME),)
-## we should only run rocksdb in production with DEBUG_LEVEL 0
-#ifeq ($(DEBUG_LEVEL),0)
+# we should only run rocksdb in production with DEBUG_LEVEL 0
+ifeq ($(DEBUG_LEVEL),0)
         LIBNAME=librocksdb
-#else
-#        LIBNAME=librocksdb_debug
-#endif
+else
+        LIBNAME=librocksdb_debug
+endif
 endif
 LIBRARY = ${LIBNAME}.a
 TOOLS_LIBRARY = ${LIBNAME}_tools.a
@@ -638,8 +628,6 @@ endif  # PLATFORM_SHARED_EXT
 	dbg rocksdbjavastatic rocksdbjava install install-static install-shared uninstall \
 	analyze tools tools_lib
 
-static_lib_debug: $(LIBRARY)
-static_lib_release: $(LIBRARY)
 
 all: $(LIBRARY) $(BENCHMARKS) tools tools_lib test_libs $(TESTS)
 

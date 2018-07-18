@@ -41,6 +41,14 @@ endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules/")
 
+find_program(CCACHE_FOUND ccache)
+if(CCACHE_FOUND)
+  set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
+  set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
+  message("use ccache to speed up compilation")
+endif(CCACHE_FOUND)
+
+add_definitions(-DPEGASUS)
 option(WITH_JEMALLOC "build with JeMalloc" OFF)
 if(MSVC)
   include(${CMAKE_CURRENT_SOURCE_DIR}/thirdparty.inc)
@@ -57,7 +65,7 @@ else()
     endif()
   endif()
 
-  option(WITH_SNAPPY "build with SNAPPY" OFF)
+  option(WITH_SNAPPY "build with SNAPPY" ON)
   if(WITH_SNAPPY)
     find_package(snappy REQUIRED)
     add_definitions(-DSNAPPY)
@@ -65,7 +73,7 @@ else()
     list(APPEND THIRDPARTY_LIBS ${SNAPPY_LIBRARIES})
   endif()
 
-  option(WITH_ZLIB "build with zlib" OFF)
+  option(WITH_ZLIB "build with zlib" ON)
   if(WITH_ZLIB)
     find_package(zlib REQUIRED)
     add_definitions(-DZLIB)
@@ -73,7 +81,7 @@ else()
     list(APPEND THIRDPARTY_LIBS ${ZLIB_LIBRARIES})
   endif()
 
-  option(WITH_BZ2 "build with bzip2" OFF)
+  option(WITH_BZ2 "build with bzip2" ON)
   if(WITH_BZ2)
     find_package(bzip2 REQUIRED)
     add_definitions(-DBZIP2)
@@ -129,7 +137,7 @@ if(NOT WIN32)
   string(STRIP "${ROCKSDB_VERSION_MAJOR}" ROCKSDB_VERSION_MAJOR)
 endif()
 
-option(WITH_MD_LIBRARY "build with MD" ON)
+option(WITH_MD_LIBRARY "build with MD" OFF)
 if(WIN32 AND MSVC)
   if(WITH_MD_LIBRARY)
     set(RUNTIME_LIBRARY "MD")
@@ -598,17 +606,17 @@ if(WIN32)
   set(LIBS ${ROCKSDB_STATIC_LIB} ${THIRDPARTY_LIBS} ${SYSTEM_LIBS})
 else()
   set(SYSTEM_LIBS ${CMAKE_THREAD_LIBS_INIT})
-  set(LIBS ${ROCKSDB_SHARED_LIB} ${THIRDPARTY_LIBS} ${SYSTEM_LIBS})
+  set(LIBS ${ROCKSDB_STATIC_LIB} ${THIRDPARTY_LIBS} ${SYSTEM_LIBS})
 
-  add_library(${ROCKSDB_SHARED_LIB} SHARED ${SOURCES})
-  target_link_libraries(${ROCKSDB_SHARED_LIB}
-    ${THIRDPARTY_LIBS} ${SYSTEM_LIBS})
-  set_target_properties(${ROCKSDB_SHARED_LIB} PROPERTIES
-                        LINKER_LANGUAGE CXX
-                        VERSION ${ROCKSDB_VERSION}
-                        SOVERSION ${ROCKSDB_VERSION_MAJOR}
-                        CXX_STANDARD 11
-                        OUTPUT_NAME "rocksdb")
+#  add_library(${ROCKSDB_SHARED_LIB} SHARED ${SOURCES})
+#  target_link_libraries(${ROCKSDB_SHARED_LIB}
+#    ${THIRDPARTY_LIBS} ${SYSTEM_LIBS})
+#  set_target_properties(${ROCKSDB_SHARED_LIB} PROPERTIES
+#                        LINKER_LANGUAGE CXX
+#                        VERSION ${ROCKSDB_VERSION}
+#                        SOVERSION ${ROCKSDB_VERSION_MAJOR}
+#                        CXX_STANDARD 11
+#                        OUTPUT_NAME "rocksdb")
 endif()
 
 option(WITH_LIBRADOS "Build with librados" OFF)
@@ -682,14 +690,14 @@ if(NOT WIN32 OR ROCKSDB_INSTALL_ON_WINDOWS)
     INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
   )
 
-  install(
-    TARGETS ${ROCKSDB_SHARED_LIB}
-    EXPORT RocksDBTargets
-    COMPONENT runtime
-    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
-    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-    INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
-  )
+#  install(
+#    TARGETS ${ROCKSDB_SHARED_LIB}
+#    EXPORT RocksDBTargets
+#    COMPONENT runtime
+#    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+#    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+#    INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+#  )
 
   install(
     EXPORT RocksDBTargets
@@ -707,7 +715,7 @@ if(NOT WIN32 OR ROCKSDB_INSTALL_ON_WINDOWS)
   )
 endif()
 
-option(WITH_TESTS "build with tests" ON)
+option(WITH_TESTS "build with tests" OFF)
 if(WITH_TESTS)
   set(TESTS
         cache/cache_test.cc
