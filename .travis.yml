@@ -35,11 +35,11 @@ before_script:
 script:
   - ${CXX} --version
   - if [ `command -v ccache` ]; then ccache -C; fi
-  - if [ "${TEST_GROUP}" == 'platform_dependent' ]; then mkdir build; cd build; cmake .. -DWITH_TESTS=ON -DROCKSDBTESTS_END=db/db_options_test.cc; OPT=-DTRAVIS V=1 make -j4 check; fi
-  - if [ "${TEST_GROUP}" == '1' ]; then mkdir build; cd build; cmake .. -DWITH_TESTS=ON -DROCKSDBTESTS_START=db/db_options_test.cc -DROCKSDBTESTS_END=db/external_sst_file_basic_test.cc; OPT=-DTRAVIS V=1 make -j4 check; fi
-  - if [ "${TEST_GROUP}" == '2' ]; then mkdir build; cd build; cmake .. -DWITH_TESTS=ON -DROCKSDBTESTS_START=db/external_sst_file_basic_test.cc -DROCKSDBTESTS_END=env/mock_env_test.cc; OPT=-DTRAVIS V=1 make -j4 check; fi
-  - if [ "${TEST_GROUP}" == '3' ]; then mkdir build; cd build; cmake .. -DWITH_TESTS=ON -DROCKSDBTESTS_START=env/mock_env_test.cc -DROCKSDBTESTS_END=util/dynamic_bloom_test.cc; OPT=-DTRAVIS V=1 make -j4 check; fi
-  - if [ "${TEST_GROUP}" == '4' ]; then mkdir build; cd build; cmake .. -DWITH_TESTS=ON -DROCKSDBTESTS_START=util/dynamic_bloom_test.cc; OPT=-DTRAVIS V=1 make -j4 check; fi
+  - if [ "${TEST_GROUP}" == 'platform_dependent' ]; then mkdir build; cd build; cmake .. -DWITH_TESTS=ON -DROCKSDBTESTS_END=db/db_options_test.cc; OPT=-DTRAVIS V=1 make -j4; ctest -j4 -V; fi
+  - if [ "${TEST_GROUP}" == '1' ]; then mkdir build; cd build; cmake .. -DWITH_TESTS=ON -DROCKSDBTESTS_START=db/db_options_test.cc -DROCKSDBTESTS_END=db/external_sst_file_basic_test.cc; OPT=-DTRAVIS V=1 make -j4; ctest -j4 -V; fi
+  - if [ "${TEST_GROUP}" == '2' ]; then mkdir build; cd build; cmake .. -DWITH_TESTS=ON -DROCKSDBTESTS_START=db/external_sst_file_basic_test.cc -DROCKSDBTESTS_END=env/mock_env_test.cc; OPT=-DTRAVIS V=1 make -j4; ctest -j4 -V; fi
+  - if [ "${TEST_GROUP}" == '3' ]; then mkdir build; cd build; cmake .. -DWITH_TESTS=ON -DROCKSDBTESTS_START=env/mock_env_test.cc -DROCKSDBTESTS_END=util/dynamic_bloom_test.cc; OPT=-DTRAVIS V=1 make -j4; ctest -j4 -V; fi
+  - if [ "${TEST_GROUP}" == '4' ]; then mkdir build; cd build; cmake .. -DWITH_TESTS=ON -DROCKSDBTESTS_START=util/dynamic_bloom_test.cc; OPT=-DTRAVIS V=1 make -j4; ctest -j4 -V; fi
   - if [ "${JOB_NAME}" == 'examples' ]; then OPT=-DTRAVIS V=1 make -j4 static_lib; cd examples; make -j4; fi
 
 notifications:
