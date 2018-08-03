@@ -13,14 +13,14 @@ addons:
    apt:
       packages: ['zlib1g-dev', 'libbz2-dev', 'libsnappy-dev', 'curl', 'libgflags-dev']
 env:
-  - TEST_GROUP=platform_dependent # 16-18 minutes
-  - TEST_GROUP=1 # 33-35 minutes
-  - TEST_GROUP=2 # 18-20 minutes
-  - TEST_GROUP=3 # 20-22 minutes
-  - TEST_GROUP=4 # 12-14 minutes
+  - TEST_GROUP=1
+  - TEST_GROUP=2
+  - TEST_GROUP=3
+  - TEST_GROUP=4
+  - TEST_GROUP=5
+  - TEST_GROUP=6
   # Build examples
   - JOB_NAME=examples # 5-7 minutes
-  - JOB_NAME=cmake # 3-5 minutes
 
 install:
   - if [[ "${JOB_NAME}" == cmake* ]] && [ "${TRAVIS_OS_NAME}" == linux ]; then
@@ -35,11 +35,12 @@ before_script:
 script:
   - ${CXX} --version
   - if [ `command -v ccache` ]; then ccache -C; fi
-  - if [ "${TEST_GROUP}" == 'platform_dependent' ]; then mkdir build; cd build; cmake .. -DWITH_TESTS=ON -DROCKSDBTESTS_END=db/db_options_test.cc; OPT=-DTRAVIS V=1 make -j4; ctest -j4 -V; fi
-  - if [ "${TEST_GROUP}" == '1' ]; then mkdir build; cd build; cmake .. -DWITH_TESTS=ON -DROCKSDBTESTS_START=db/db_options_test.cc -DROCKSDBTESTS_END=db/external_sst_file_basic_test.cc; OPT=-DTRAVIS V=1 make -j4; ctest -j4 -V; fi
-  - if [ "${TEST_GROUP}" == '2' ]; then mkdir build; cd build; cmake .. -DWITH_TESTS=ON -DROCKSDBTESTS_START=db/external_sst_file_basic_test.cc -DROCKSDBTESTS_END=env/mock_env_test.cc; OPT=-DTRAVIS V=1 make -j4; ctest -j4 -V; fi
-  - if [ "${TEST_GROUP}" == '3' ]; then mkdir build; cd build; cmake .. -DWITH_TESTS=ON -DROCKSDBTESTS_START=env/mock_env_test.cc -DROCKSDBTESTS_END=util/dynamic_bloom_test.cc; OPT=-DTRAVIS V=1 make -j4; ctest -j4 -V; fi
-  - if [ "${TEST_GROUP}" == '4' ]; then mkdir build; cd build; cmake .. -DWITH_TESTS=ON -DROCKSDBTESTS_START=util/dynamic_bloom_test.cc; OPT=-DTRAVIS V=1 make -j4; ctest -j4 -V; fi
+  - if [ "${TEST_GROUP}" == '1' ]; then mkdir build; cd build; cmake .. -DWITH_TESTS=ON -DROCKSDBTESTS_END=db/db_log_iter_test.cc; OPT=-DTRAVIS V=1 make -j4; ctest -j4 -V; fi
+  - if [ "${TEST_GROUP}" == '2' ]; then mkdir build; cd build; cmake .. -DWITH_TESTS=ON -DROCKSDBTESTS_START=db/db_log_iter_test.cc -DROCKSDBTESTS_END=db/listener_test.cc; OPT=-DTRAVIS V=1 make -j4; ctest -j4 -V; fi
+  - if [ "${TEST_GROUP}" == '3' ]; then mkdir build; cd build; cmake .. -DWITH_TESTS=ON -DROCKSDBTESTS_START=db/listener_test.cc -DROCKSDBTESTS_END=memtable/skiplist_test.cc; OPT=-DTRAVIS V=1 make -j4; ctest -j4 -V; fi
+  - if [ "${TEST_GROUP}" == '4' ]; then mkdir build; cd build; cmake .. -DWITH_TESTS=ON -DROCKSDBTESTS_START=memtable/skiplist_test.cc -DROCKSDBTESTS_END=util/delete_scheduler_test.cc; OPT=-DTRAVIS V=1 make -j4; ctest -j4 -V; fi
+  - if [ "${TEST_GROUP}" == '5' ]; then mkdir build; cd build; cmake .. -DWITH_TESTS=ON -DROCKSDBTESTS_START=util/delete_scheduler_test.cc -DROCKSDBTESTS_END=utilities/geodb/geodb_test.cc; OPT=-DTRAVIS V=1 make -j4; ctest -j4 -V; fi
+  - if [ "${TEST_GROUP}" == '6' ]; then mkdir build; cd build; cmake .. -DWITH_TESTS=ON -DROCKSDBTESTS_START=utilities/geodb/geodb_test.cc; OPT=-DTRAVIS V=1 make -j4; ctest -j4 -V; fi
   - if [ "${JOB_NAME}" == 'examples' ]; then OPT=-DTRAVIS V=1 make -j4 static_lib; cd examples; make -j4; fi
 
 notifications:
