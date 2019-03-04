@@ -169,11 +169,12 @@ TEST_F(DBBasicTest, CompactedDB) {
 
 TEST_F(DBBasicTest, LevelLimitReopen) {
   Options options = CurrentOptions();
+  CreateAndReopenWithCF({"pikachu"}, options);
 
   const std::string value(1024 * 1024, ' ');
   int i = 0;
-  while (NumTableFilesAtLevel(2, 0) == 0) {
-    ASSERT_OK(Put(Key(i++), value));
+  while (NumTableFilesAtLevel(2, 1) == 0) {
+    ASSERT_OK(Put(1, Key(i++), value));
     dbfull()->TEST_WaitForFlushMemTable();
     dbfull()->TEST_WaitForCompact();
   }
@@ -187,36 +188,36 @@ TEST_F(DBBasicTest, LevelLimitReopen) {
 
   options.num_levels = 10;
   options.max_bytes_for_level_multiplier_additional.resize(10, 1);
-  ASSERT_OK(TryReopenWithColumnFamilies({"default"}, options));
+  ASSERT_OK(TryReopenWithColumnFamilies({"default", "pikachu"}, options));
 }
 #endif  // ROCKSDB_LITE
 
 TEST_F(DBBasicTest, PutDeleteGet) {
   do {
-    ASSERT_OK(Put("foo", "v1"));
-    ASSERT_EQ("v1", Get("foo"));
-    ASSERT_OK(Put("foo", "v2"));
-    ASSERT_EQ("v2", Get("foo"));
-    ASSERT_OK(Delete("foo"));
-    ASSERT_EQ("NOT_FOUND", Get("foo"));
-  } while (ChangeOptions(kSkipPipelinedWrite));
+    CreateAndReopenWithCF({"pikachu"}, CurrentOptions());
+    ASSERT_OK(Put(1, "foo", "v1"));
+    ASSERT_EQ("v1", Get(1, "foo"));
+    ASSERT_OK(Put(1, "foo", "v2"));
+    ASSERT_EQ("v2", Get(1, "foo"));
+    ASSERT_OK(Delete(1, "foo"));
+    ASSERT_EQ("NOT_FOUND", Get(1, "foo"));
+  } while (ChangeOptions());
 }
 
 TEST_F(DBBasicTest, PutSingleDeleteGet) {
   do {
-    //CreateAndReopenWithCF({"pikachu"}, CurrentOptions());
-    ASSERT_OK(Put("foo", "v1"));
-    ASSERT_EQ("v1", Get("foo"));
-    ASSERT_OK(Put("foo2", "v2"));
-    ASSERT_EQ("v2", Get("foo2"));
-    ASSERT_OK(SingleDelete("foo"));
-    ASSERT_EQ("NOT_FOUND", Get("foo"));
+    CreateAndReopenWithCF({"pikachu"}, CurrentOptions());
+    ASSERT_OK(Put(1, "foo", "v1"));
+    ASSERT_EQ("v1", Get(1, "foo"));
+    ASSERT_OK(Put(1, "foo2", "v2"));
+    ASSERT_EQ("v2", Get(1, "foo2"));
+    ASSERT_OK(SingleDelete(1, "foo"));
+    ASSERT_EQ("NOT_FOUND", Get(1, "foo"));
     // Skip HashCuckooRep as it does not support single delete. FIFO and
     // universal compaction do not apply to the test case. Skip MergePut
     // because single delete does not get removed when it encounters a merge.
   } while (ChangeOptions(kSkipHashCuckoo | kSkipFIFOCompaction |
-                         kSkipUniversalCompaction | kSkipMergePut |
-                         kSkipPipelinedWrite));
+                         kSkipUniversalCompaction | kSkipMergePut));
 }
 
 TEST_F(DBBasicTest, EmptyFlush) {
@@ -227,27 +228,28 @@ TEST_F(DBBasicTest, EmptyFlush) {
 
     Options options = CurrentOptions();
     options.disable_auto_compactions = true;
+    CreateAndReopenWithCF({"pikachu"}, options);
 
-    Put("a", Slice());
-    SingleDelete("a");
-    ASSERT_OK(Flush(0));
+    Put(1, "a", Slice());
+    SingleDelete(1, "a");
+    ASSERT_OK(Flush(1));
 
-    ASSERT_EQ("[ ]", AllEntriesFor("a", 0));
+    ASSERT_EQ("[ ]", AllEntriesFor("a", 1));
     // Skip HashCuckooRep as it does not support single delete. FIFO and
     // universal compaction do not apply to the test case. Skip MergePut
     // because merges cannot be combined with single deletions.
   } while (ChangeOptions(kSkipHashCuckoo | kSkipFIFOCompaction |
-                         kSkipUniversalCompaction | kSkipMergePut| kSkipPipelinedWrite));
+                         kSkipUniversalCompaction | kSkipMergePut));
 }
 
 TEST_F(DBBasicTest, GetFromVersions) {
   do {
-    //CreateAndReopenWithCF({"pikachu"}, CurrentOptions());
-    ASSERT_OK(Put("foo", "v1"));
-    ASSERT_OK(Flush(0));
-    ASSERT_EQ("v1", Get("foo"));
-//    ASSERT_EQ("NOT_FOUND", Get(0, "foo"));
-  } while (ChangeOptions(kSkipPipelinedWrite));
+    CreateAndReopenWithCF({"pikachu"}, CurrentOptions());
+    ASSERT_OK(Put(1, "foo", "v1"));
+    ASSERT_OK(Flush(1));
+    ASSERT_EQ("v1", Get(1, "foo"));
+    ASSERT_EQ("NOT_FOUND", Get(0, "foo"));
+  } while (ChangeOptions());
 }
 
 #ifndef ROCKSDB_LITE
@@ -255,26 +257,26 @@ TEST_F(DBBasicTest, GetSnapshot) {
   anon::OptionsOverride options_override;
   options_override.skip_policy = kSkipNoSnapshot;
   do {
-//    CreateAndReopenWithCF({"pikachu"}, CurrentOptions(options_override));
+    CreateAndReopenWithCF({"pikachu"}, CurrentOptions(options_override));
     // Try with both a short key and a long key
     for (int i = 0; i < 2; i++) {
       std::string key = (i == 0) ? std::string("foo") : std::string(200, 'x');
-      ASSERT_OK(Put(key, "v1"));
+      ASSERT_OK(Put(1, key, "v1"));
       const Snapshot* s1 = db_->GetSnapshot();
       if (option_config_ == kHashCuckoo) {
         // Unsupported case.
         ASSERT_TRUE(s1 == nullptr);
         break;
       }
-      ASSERT_OK(Put(key, "v2"));
-      ASSERT_EQ("v2", Get(key));
-      ASSERT_EQ("v1", Get(key, s1));
-      ASSERT_OK(Flush(0));
-      ASSERT_EQ("v2", Get(key));
-      ASSERT_EQ("v1", Get(key, s1));
+      ASSERT_OK(Put(1, key, "v2"));
+      ASSERT_EQ("v2", Get(1, key));
+      ASSERT_EQ("v1", Get(1, key, s1));
+      ASSERT_OK(Flush(1));
+      ASSERT_EQ("v2", Get(1, key));
+      ASSERT_EQ("v1", Get(1, key, s1));
       db_->ReleaseSnapshot(s1);
     }
-  } while (ChangeOptions(kSkipPipelinedWrite));
+  } while (ChangeOptions());
 }
 #endif  // ROCKSDB_LITE
 
@@ -297,18 +299,18 @@ TEST_F(DBBasicTest, FlushMultipleMemtable) {
     options.max_write_buffer_number = 4;
     options.min_write_buffer_number_to_merge = 3;
     options.max_write_buffer_number_to_maintain = -1;
-    //CreateAndReopenWithCF({"pikachu"}, options);
-    ASSERT_OK(dbfull()->Put(writeOpt,"foo", "v1"));
-    ASSERT_OK(Flush(0));
-    ASSERT_OK(dbfull()->Put(writeOpt,"bar", "v1"));
+    CreateAndReopenWithCF({"pikachu"}, options);
+    ASSERT_OK(dbfull()->Put(writeOpt, handles_[1], "foo", "v1"));
+    ASSERT_OK(Flush(1));
+    ASSERT_OK(dbfull()->Put(writeOpt, handles_[1], "bar", "v1"));
 
-    ASSERT_EQ("v1", Get("foo"));
-    ASSERT_EQ("v1", Get("bar"));
-    ASSERT_OK(Flush(0));
+    ASSERT_EQ("v1", Get(1, "foo"));
+    ASSERT_EQ("v1", Get(1, "bar"));
+    ASSERT_OK(Flush(1));
   } while (ChangeCompactOptions());
 }
 
-TEST_F(DBBasicTest, DISABLED_FlushEmptyColumnFamily) {
+TEST_F(DBBasicTest, FlushEmptyColumnFamily) {
   // Block flush thread and disable compaction thread
   env_->SetBackgroundThreads(1, Env::HIGH);
   env_->SetBackgroundThreads(1, Env::LOW);
@@ -329,15 +331,10 @@ TEST_F(DBBasicTest, DISABLED_FlushEmptyColumnFamily) {
   options.max_write_buffer_number_to_maintain = 1;
   CreateAndReopenWithCF({"pikachu"}, options);
 
-  auto cfh = dbfull()->DefaultColumnFamily();
-  auto cfd = reinterpret_cast<ColumnFamilyHandleImpl*>(cfh)->cfd();
-  ASSERT_EQ(0, cfd->imm()->NumNotFlushed());
-
   // Compaction can still go through even if no thread can flush the
   // mem table.
   ASSERT_OK(Flush(0));
   ASSERT_OK(Flush(1));
-  ASSERT_EQ(0, cfd->imm()->NumNotFlushed());
 
   // Insert can go through
   ASSERT_OK(dbfull()->Put(writeOpt, handles_[0], "foo", "v1"));
@@ -346,34 +343,12 @@ TEST_F(DBBasicTest, DISABLED_FlushEmptyColumnFamily) {
   ASSERT_EQ("v1", Get(0, "foo"));
   ASSERT_EQ("v1", Get(1, "bar"));
 
-  // Compaction without waiting will go through even if no thread can
-  // flush the mem table, which will switch the mem table.
-  FlushOptions flush_options;
-  flush_options.wait = false;
-  ASSERT_OK(Flush(0, flush_options));
-  ASSERT_OK(Flush(1, flush_options));
-  ASSERT_EQ(1, cfd->imm()->NumNotFlushed());
-
-  // Compaction without waiting will go through even if no thread can
-  // flush the mem table, and no new compaction will be started.
-  ASSERT_OK(Flush(0, flush_options));
-  ASSERT_OK(Flush(1, flush_options));
-  ASSERT_EQ(1, cfd->imm()->NumNotFlushed());
-
-  // Insert can go through
-  ASSERT_OK(dbfull()->Put(writeOpt, handles_[0], "k1", "v1"));
-  ASSERT_OK(dbfull()->Put(writeOpt, handles_[1], "k2", "v2"));
-
-  ASSERT_EQ("v1", Get(0, "k1"));
-  ASSERT_EQ("v2", Get(1, "k2"));
-
   sleeping_task_high.WakeUp();
   sleeping_task_high.WaitUntilDone();
 
   // Flush can still go through.
   ASSERT_OK(Flush(0));
   ASSERT_OK(Flush(1));
-  ASSERT_EQ(0, cfd->imm()->NumNotFlushed());
 
   sleeping_task_low.WakeUp();
   sleeping_task_low.WaitUntilDone();
@@ -381,45 +356,45 @@ TEST_F(DBBasicTest, DISABLED_FlushEmptyColumnFamily) {
 
 TEST_F(DBBasicTest, FLUSH) {
   do {
-//    CreateAndReopenWithCF({"pikachu"}, CurrentOptions());
+    CreateAndReopenWithCF({"pikachu"}, CurrentOptions());
     WriteOptions writeOpt = WriteOptions();
     writeOpt.disableWAL = true;
     SetPerfLevel(kEnableTime);
-    ASSERT_OK(dbfull()->Put(writeOpt,"foo", "v1"));
+    ASSERT_OK(dbfull()->Put(writeOpt, handles_[1], "foo", "v1"));
     // this will now also flush the last 2 writes
-    ASSERT_OK(Flush(0));
-    ASSERT_OK(dbfull()->Put(writeOpt,"bar", "v1"));
+    ASSERT_OK(Flush(1));
+    ASSERT_OK(dbfull()->Put(writeOpt, handles_[1], "bar", "v1"));
 
     get_perf_context()->Reset();
-    Get("foo");
+    Get(1, "foo");
     ASSERT_TRUE((int)get_perf_context()->get_from_output_files_time > 0);
     ASSERT_EQ(2, (int)get_perf_context()->get_read_bytes);
 
-    ReopenWithColumnFamilies({"default"}, CurrentOptions());
-    ASSERT_EQ("v1", Get("foo"));
-    ASSERT_EQ("v1", Get("bar"));
+    ReopenWithColumnFamilies({"default", "pikachu"}, CurrentOptions());
+    ASSERT_EQ("v1", Get(1, "foo"));
+    ASSERT_EQ("v1", Get(1, "bar"));
 
     writeOpt.disableWAL = true;
-    ASSERT_OK(dbfull()->Put(writeOpt, "bar", "v2"));
-    ASSERT_OK(dbfull()->Put(writeOpt, "foo", "v2"));
-    ASSERT_OK(Flush(0));
+    ASSERT_OK(dbfull()->Put(writeOpt, handles_[1], "bar", "v2"));
+    ASSERT_OK(dbfull()->Put(writeOpt, handles_[1], "foo", "v2"));
+    ASSERT_OK(Flush(1));
 
-    ReopenWithColumnFamilies({"default"}, CurrentOptions());
-    ASSERT_EQ("v2", Get("bar"));
+    ReopenWithColumnFamilies({"default", "pikachu"}, CurrentOptions());
+    ASSERT_EQ("v2", Get(1, "bar"));
     get_perf_context()->Reset();
-    ASSERT_EQ("v2", Get("foo"));
+    ASSERT_EQ("v2", Get(1, "foo"));
     ASSERT_TRUE((int)get_perf_context()->get_from_output_files_time > 0);
 
     writeOpt.disableWAL = false;
-    ASSERT_OK(dbfull()->Put(writeOpt, "bar", "v3"));
-    ASSERT_OK(dbfull()->Put(writeOpt, "foo", "v3"));
-    ASSERT_OK(Flush(0));
+    ASSERT_OK(dbfull()->Put(writeOpt, handles_[1], "bar", "v3"));
+    ASSERT_OK(dbfull()->Put(writeOpt, handles_[1], "foo", "v3"));
+    ASSERT_OK(Flush(1));
 
-    ReopenWithColumnFamilies({"default"}, CurrentOptions());
+    ReopenWithColumnFamilies({"default", "pikachu"}, CurrentOptions());
     // 'foo' should be there because its put
     // has WAL enabled.
-    ASSERT_EQ("v3", Get("foo"));
-    ASSERT_EQ("v3", Get("bar"));
+    ASSERT_EQ("v3", Get(1, "foo"));
+    ASSERT_EQ("v3", Get(1, "bar"));
 
     SetPerfLevel(kDisable);
   } while (ChangeCompactOptions());
@@ -430,20 +405,21 @@ TEST_F(DBBasicTest, ManifestRollOver) {
     Options options;
     options.max_manifest_file_size = 10;  // 10 bytes
     options = CurrentOptions(options);
+    CreateAndReopenWithCF({"pikachu"}, options);
     {
-      ASSERT_OK(Put("manifest_key1", std::string(1000, '1')));
-      ASSERT_OK(Put("manifest_key2", std::string(1000, '2')));
-      ASSERT_OK(Put("manifest_key3", std::string(1000, '3')));
+      ASSERT_OK(Put(1, "manifest_key1", std::string(1000, '1')));
+      ASSERT_OK(Put(1, "manifest_key2", std::string(1000, '2')));
+      ASSERT_OK(Put(1, "manifest_key3", std::string(1000, '3')));
       uint64_t manifest_before_flush = dbfull()->TEST_Current_Manifest_FileNo();
-      ASSERT_OK(Flush(0));  // This should trigger LogAndApply.
+      ASSERT_OK(Flush(1));  // This should trigger LogAndApply.
       uint64_t manifest_after_flush = dbfull()->TEST_Current_Manifest_FileNo();
       ASSERT_GT(manifest_after_flush, manifest_before_flush);
-      ReopenWithColumnFamilies({"default"}, options);
+      ReopenWithColumnFamilies({"default", "pikachu"}, options);
       ASSERT_GT(dbfull()->TEST_Current_Manifest_FileNo(), manifest_after_flush);
       // check if a new manifest file got inserted or not.
-      ASSERT_EQ(std::string(1000, '1'), Get("manifest_key1"));
-      ASSERT_EQ(std::string(1000, '2'), Get("manifest_key2"));
-      ASSERT_EQ(std::string(1000, '3'), Get("manifest_key3"));
+      ASSERT_EQ(std::string(1000, '1'), Get(1, "manifest_key1"));
+      ASSERT_EQ(std::string(1000, '2'), Get(1, "manifest_key2"));
+      ASSERT_EQ(std::string(1000, '3'), Get(1, "manifest_key3"));
     }
   } while (ChangeCompactOptions());
 }
@@ -475,64 +451,64 @@ TEST_F(DBBasicTest, Snapshot) {
   anon::OptionsOverride options_override;
   options_override.skip_policy = kSkipNoSnapshot;
   do {
-    //CreateAndReopenWithCF({"pikachu"}, CurrentOptions(options_override));
-    Put(/*0, */"foo", "0v1");
-    //Put(1, "foo", "1v1");
+    CreateAndReopenWithCF({"pikachu"}, CurrentOptions(options_override));
+    Put(0, "foo", "0v1");
+    Put(1, "foo", "1v1");
 
     const Snapshot* s1 = db_->GetSnapshot();
     ASSERT_EQ(1U, GetNumSnapshots());
     uint64_t time_snap1 = GetTimeOldestSnapshots();
     ASSERT_GT(time_snap1, 0U);
-    Put(/*0, */"foo", "0v2");
-    //Put(1, "foo", "1v2");
+    Put(0, "foo", "0v2");
+    Put(1, "foo", "1v2");
 
     env_->addon_time_.fetch_add(1);
 
     const Snapshot* s2 = db_->GetSnapshot();
     ASSERT_EQ(2U, GetNumSnapshots());
     ASSERT_EQ(time_snap1, GetTimeOldestSnapshots());
-    Put(/*0, */"foo", "0v3");
-    //Put(1, "foo", "1v3");
+    Put(0, "foo", "0v3");
+    Put(1, "foo", "1v3");
 
     {
       ManagedSnapshot s3(db_);
       ASSERT_EQ(3U, GetNumSnapshots());
       ASSERT_EQ(time_snap1, GetTimeOldestSnapshots());
 
-      Put(/*0, */"foo", "0v4");
-      //Put(1, "foo", "1v4");
-      ASSERT_EQ("0v1", Get(/*0, */"foo", s1));
-      //ASSERT_EQ("1v1", Get(1, "foo", s1));
-      ASSERT_EQ("0v2", Get(/*0, */"foo", s2));
-      //ASSERT_EQ("1v2", Get(1, "foo", s2));
-      ASSERT_EQ("0v3", Get(/*0, */"foo", s3.snapshot()));
-      //ASSERT_EQ("1v3", Get(1, "foo", s3.snapshot()));
-      ASSERT_EQ("0v4", Get(/*0, */"foo"));
-      //ASSERT_EQ("1v4", Get(1, "foo"));
+      Put(0, "foo", "0v4");
+      Put(1, "foo", "1v4");
+      ASSERT_EQ("0v1", Get(0, "foo", s1));
+      ASSERT_EQ("1v1", Get(1, "foo", s1));
+      ASSERT_EQ("0v2", Get(0, "foo", s2));
+      ASSERT_EQ("1v2", Get(1, "foo", s2));
+      ASSERT_EQ("0v3", Get(0, "foo", s3.snapshot()));
+      ASSERT_EQ("1v3", Get(1, "foo", s3.snapshot()));
+      ASSERT_EQ("0v4", Get(0, "foo"));
+      ASSERT_EQ("1v4", Get(1, "foo"));
     }
 
     ASSERT_EQ(2U, GetNumSnapshots());
     ASSERT_EQ(time_snap1, GetTimeOldestSnapshots());
-    ASSERT_EQ("0v1", Get(/*0, */"foo", s1));
-    //ASSERT_EQ("1v1", Get(1, "foo", s1));
-    ASSERT_EQ("0v2", Get(/*0, */"foo", s2));
-    //ASSERT_EQ("1v2", Get(1, "foo", s2));
-    ASSERT_EQ("0v4", Get(/*0, */"foo"));
-    //ASSERT_EQ("1v4", Get(1, "foo"));
+    ASSERT_EQ("0v1", Get(0, "foo", s1));
+    ASSERT_EQ("1v1", Get(1, "foo", s1));
+    ASSERT_EQ("0v2", Get(0, "foo", s2));
+    ASSERT_EQ("1v2", Get(1, "foo", s2));
+    ASSERT_EQ("0v4", Get(0, "foo"));
+    ASSERT_EQ("1v4", Get(1, "foo"));
 
     db_->ReleaseSnapshot(s1);
-    ASSERT_EQ("0v2", Get(/*0, */"foo", s2));
-    //ASSERT_EQ("1v2", Get(1, "foo", s2));
-    ASSERT_EQ("0v4", Get(/*0, */"foo"));
-    //ASSERT_EQ("1v4", Get(1, "foo"));
+    ASSERT_EQ("0v2", Get(0, "foo", s2));
+    ASSERT_EQ("1v2", Get(1, "foo", s2));
+    ASSERT_EQ("0v4", Get(0, "foo"));
+    ASSERT_EQ("1v4", Get(1, "foo"));
     ASSERT_EQ(1U, GetNumSnapshots());
     ASSERT_LT(time_snap1, GetTimeOldestSnapshots());
 
     db_->ReleaseSnapshot(s2);
     ASSERT_EQ(0U, GetNumSnapshots());
-    ASSERT_EQ("0v4", Get(/*0, */"foo"));
-    //ASSERT_EQ("1v4", Get(1, "foo"));
-  } while (ChangeOptions(kSkipHashCuckoo | kSkipPipelinedWrite));
+    ASSERT_EQ("0v4", Get(0, "foo"));
+    ASSERT_EQ("1v4", Get(1, "foo"));
+  } while (ChangeOptions(kSkipHashCuckoo));
 }
 
 #endif  // ROCKSDB_LITE
@@ -543,54 +519,53 @@ TEST_F(DBBasicTest, CompactBetweenSnapshots) {
   do {
     Options options = CurrentOptions(options_override);
     options.disable_auto_compactions = true;
-    Reopen(options);
+    CreateAndReopenWithCF({"pikachu"}, options);
     Random rnd(301);
-    FillLevels("a", "z", 0);
+    FillLevels("a", "z", 1);
 
-    Put("foo", "first");
+    Put(1, "foo", "first");
     const Snapshot* snapshot1 = db_->GetSnapshot();
-    Put("foo", "second");
-    Put("foo", "third");
-    Put("foo", "fourth");
+    Put(1, "foo", "second");
+    Put(1, "foo", "third");
+    Put(1, "foo", "fourth");
     const Snapshot* snapshot2 = db_->GetSnapshot();
-    Put("foo", "fifth");
-    Put("foo", "sixth");
+    Put(1, "foo", "fifth");
+    Put(1, "foo", "sixth");
 
     // All entries (including duplicates) exist
     // before any compaction or flush is triggered.
-    ASSERT_EQ(AllEntriesFor("foo", 0),
+    ASSERT_EQ(AllEntriesFor("foo", 1),
               "[ sixth, fifth, fourth, third, second, first ]");
-    ASSERT_EQ("sixth", Get("foo"));
-    ASSERT_EQ("fourth", Get("foo", snapshot2));
-    ASSERT_EQ("first", Get("foo", snapshot1));
+    ASSERT_EQ("sixth", Get(1, "foo"));
+    ASSERT_EQ("fourth", Get(1, "foo", snapshot2));
+    ASSERT_EQ("first", Get(1, "foo", snapshot1));
 
     // After a flush, "second", "third" and "fifth" should
     // be removed
-    ASSERT_OK(Flush(0));
-    ASSERT_EQ(AllEntriesFor("foo"), "[ sixth, fourth, first ]");
+    ASSERT_OK(Flush(1));
+    ASSERT_EQ(AllEntriesFor("foo", 1), "[ sixth, fourth, first ]");
 
     // after we release the snapshot1, only two values left
     db_->ReleaseSnapshot(snapshot1);
-    FillLevels("a", "z", 0);
-    dbfull()->CompactRange(CompactRangeOptions(), nullptr,
+    FillLevels("a", "z", 1);
+    dbfull()->CompactRange(CompactRangeOptions(), handles_[1], nullptr,
                            nullptr);
 
     // We have only one valid snapshot snapshot2. Since snapshot1 is
     // not valid anymore, "first" should be removed by a compaction.
-    ASSERT_EQ("sixth", Get("foo"));
-    ASSERT_EQ("fourth", Get("foo", snapshot2));
-    ASSERT_EQ(AllEntriesFor("foo", 0), "[ sixth, fourth ]");
+    ASSERT_EQ("sixth", Get(1, "foo"));
+    ASSERT_EQ("fourth", Get(1, "foo", snapshot2));
+    ASSERT_EQ(AllEntriesFor("foo", 1), "[ sixth, fourth ]");
 
     // after we release the snapshot2, only one value should be left
     db_->ReleaseSnapshot(snapshot2);
-    FillLevels("a", "z", 0);
-    dbfull()->CompactRange(CompactRangeOptions(), nullptr,
+    FillLevels("a", "z", 1);
+    dbfull()->CompactRange(CompactRangeOptions(), handles_[1], nullptr,
                            nullptr);
-    ASSERT_EQ("sixth", Get("foo"));
-    ASSERT_EQ(AllEntriesFor("foo", 0), "[ sixth ]");
+    ASSERT_EQ("sixth", Get(1, "foo"));
+    ASSERT_EQ(AllEntriesFor("foo", 1), "[ sixth ]");
     // skip HashCuckooRep as it does not support snapshot
-  } while (ChangeOptions(kSkipHashCuckoo | kSkipFIFOCompaction
-                         | kSkipPipelinedWrite));
+  } while (ChangeOptions(kSkipHashCuckoo | kSkipFIFOCompaction));
 }
 
 TEST_F(DBBasicTest, DBOpen_Options) {
@@ -638,98 +613,94 @@ TEST_F(DBBasicTest, CompactOnFlush) {
   do {
     Options options = CurrentOptions(options_override);
     options.disable_auto_compactions = true;
-    //CreateAndReopenWithCF({"pikachu"}, options);
+    CreateAndReopenWithCF({"pikachu"}, options);
 
-    Put("foo", "v1");
-    ASSERT_OK(Flush(0));
-    ASSERT_EQ(AllEntriesFor("foo", 0), "[ v1 ]");
+    Put(1, "foo", "v1");
+    ASSERT_OK(Flush(1));
+    ASSERT_EQ(AllEntriesFor("foo", 1), "[ v1 ]");
 
     // Write two new keys
-    Put("a", "begin");
-    Put("z", "end");
-    Flush(0);
+    Put(1, "a", "begin");
+    Put(1, "z", "end");
+    Flush(1);
 
     // Case1: Delete followed by a put
-    Delete("foo");
-    Put("foo", "v2");
-    ASSERT_EQ(AllEntriesFor("foo", 0), "[ v2, DEL, v1 ]");
+    Delete(1, "foo");
+    Put(1, "foo", "v2");
+    ASSERT_EQ(AllEntriesFor("foo", 1), "[ v2, DEL, v1 ]");
 
     // After the current memtable is flushed, the DEL should
     // have been removed
-    ASSERT_OK(Flush(0));
-    ASSERT_EQ(AllEntriesFor("foo", 0), "[ v2, v1 ]");
+    ASSERT_OK(Flush(1));
+    ASSERT_EQ(AllEntriesFor("foo", 1), "[ v2, v1 ]");
 
-    Put("foo", "v2");        // add data to memtable to ensure compact will be executed
-    dbfull()->CompactRange(CompactRangeOptions(), nullptr,
+    dbfull()->CompactRange(CompactRangeOptions(), handles_[1], nullptr,
                            nullptr);
-    ASSERT_EQ(AllEntriesFor("foo", 0), "[ v2 ]");
+    ASSERT_EQ(AllEntriesFor("foo", 1), "[ v2 ]");
 
     // Case 2: Delete followed by another delete
-    Delete("foo");
-    Delete("foo");
-    ASSERT_EQ(AllEntriesFor("foo"), "[ DEL, DEL, v2 ]");
-    ASSERT_OK(Flush(0));
-    ASSERT_EQ(AllEntriesFor("foo", 0), "[ DEL, v2 ]");
-    Delete("foo");
-    dbfull()->CompactRange(CompactRangeOptions(), nullptr,
+    Delete(1, "foo");
+    Delete(1, "foo");
+    ASSERT_EQ(AllEntriesFor("foo", 1), "[ DEL, DEL, v2 ]");
+    ASSERT_OK(Flush(1));
+    ASSERT_EQ(AllEntriesFor("foo", 1), "[ DEL, v2 ]");
+    dbfull()->CompactRange(CompactRangeOptions(), handles_[1], nullptr,
                            nullptr);
-    ASSERT_EQ(AllEntriesFor("foo", 0), "[ ]");
+    ASSERT_EQ(AllEntriesFor("foo", 1), "[ ]");
 
     // Case 3: Put followed by a delete
-    Put("foo", "v3");
-    Delete("foo");
-    ASSERT_EQ(AllEntriesFor("foo", 0), "[ DEL, v3 ]");
-    ASSERT_OK(Flush(0));
-    ASSERT_EQ(AllEntriesFor("foo", 0), "[ DEL ]");
-    Delete("foo");
-    dbfull()->CompactRange(CompactRangeOptions(), nullptr,
+    Put(1, "foo", "v3");
+    Delete(1, "foo");
+    ASSERT_EQ(AllEntriesFor("foo", 1), "[ DEL, v3 ]");
+    ASSERT_OK(Flush(1));
+    ASSERT_EQ(AllEntriesFor("foo", 1), "[ DEL ]");
+    dbfull()->CompactRange(CompactRangeOptions(), handles_[1], nullptr,
                            nullptr);
-    ASSERT_EQ(AllEntriesFor("foo", 0), "[ ]");
+    ASSERT_EQ(AllEntriesFor("foo", 1), "[ ]");
 
     // Case 4: Put followed by another Put
-    Put("foo", "v4");
-    Put("foo", "v5");
-    ASSERT_EQ(AllEntriesFor("foo", 0), "[ v5, v4 ]");
-    ASSERT_OK(Flush(0));
-    ASSERT_EQ(AllEntriesFor("foo", 0), "[ v5 ]");
-    Put("foo", "v5");
-    dbfull()->CompactRange(CompactRangeOptions(), nullptr,
+    Put(1, "foo", "v4");
+    Put(1, "foo", "v5");
+    ASSERT_EQ(AllEntriesFor("foo", 1), "[ v5, v4 ]");
+    ASSERT_OK(Flush(1));
+    ASSERT_EQ(AllEntriesFor("foo", 1), "[ v5 ]");
+    dbfull()->CompactRange(CompactRangeOptions(), handles_[1], nullptr,
                            nullptr);
-    ASSERT_EQ(AllEntriesFor("foo", 0), "[ v5 ]");
+    ASSERT_EQ(AllEntriesFor("foo", 1), "[ v5 ]");
 
     // clear database
-    Delete("foo");
-    dbfull()->CompactRange(CompactRangeOptions(), nullptr,
+    Delete(1, "foo");
+    dbfull()->CompactRange(CompactRangeOptions(), handles_[1], nullptr,
                            nullptr);
-    ASSERT_EQ(AllEntriesFor("foo", 0), "[ ]");
+    ASSERT_EQ(AllEntriesFor("foo", 1), "[ ]");
 
     // Case 5: Put followed by snapshot followed by another Put
     // Both puts should remain.
-    Put("foo", "v6");
+    Put(1, "foo", "v6");
     const Snapshot* snapshot = db_->GetSnapshot();
-    Put("foo", "v7");
-    ASSERT_OK(Flush(0));
-    ASSERT_EQ(AllEntriesFor("foo", 0), "[ v7, v6 ]");
+    Put(1, "foo", "v7");
+    ASSERT_OK(Flush(1));
+    ASSERT_EQ(AllEntriesFor("foo", 1), "[ v7, v6 ]");
     db_->ReleaseSnapshot(snapshot);
 
     // clear database
-    Delete("foo");
-    dbfull()->CompactRange(CompactRangeOptions(), nullptr,
+    Delete(1, "foo");
+    dbfull()->CompactRange(CompactRangeOptions(), handles_[1], nullptr,
                            nullptr);
-    ASSERT_EQ(AllEntriesFor("foo", 0), "[ ]");
+    ASSERT_EQ(AllEntriesFor("foo", 1), "[ ]");
 
     // Case 5: snapshot followed by a put followed by another Put
     // Only the last put should remain.
     const Snapshot* snapshot1 = db_->GetSnapshot();
-    Put("foo", "v8");
-    Put("foo", "v9");
-    ASSERT_OK(Flush(0));
-    ASSERT_EQ(AllEntriesFor("foo", 0), "[ v9 ]");
+    Put(1, "foo", "v8");
+    Put(1, "foo", "v9");
+    ASSERT_OK(Flush(1));
+    ASSERT_EQ(AllEntriesFor("foo", 1), "[ v9 ]");
     db_->ReleaseSnapshot(snapshot1);
   } while (ChangeCompactOptions());
 }
 
-TEST_F(DBBasicTest, DISABLED_FlushOneColumnFamily) {
+TEST_F(DBBasicTest, FlushOneColumnFamily) {
   Options options = CurrentOptions();
   CreateAndReopenWithCF({"pikachu", "ilya", "muromec", "dobrynia", "nikitich",
                          "alyosha", "popovich"},
@@ -753,21 +724,23 @@ TEST_F(DBBasicTest, DISABLED_FlushOneColumnFamily) {
 
 TEST_F(DBBasicTest, MultiGetSimple) {
   do {
+    CreateAndReopenWithCF({"pikachu"}, CurrentOptions());
     SetPerfLevel(kEnableCount);
-    ASSERT_OK(Put("k1", "v1"));
-    ASSERT_OK(Put("k2", "v2"));
-    ASSERT_OK(Put("k3", "v3"));
-    ASSERT_OK(Put("k4", "v4"));
-    ASSERT_OK(Delete("k4"));
-    ASSERT_OK(Put("k5", "v5"));
-    ASSERT_OK(Delete("no_key"));
+    ASSERT_OK(Put(1, "k1", "v1"));
+    ASSERT_OK(Put(1, "k2", "v2"));
+    ASSERT_OK(Put(1, "k3", "v3"));
+    ASSERT_OK(Put(1, "k4", "v4"));
+    ASSERT_OK(Delete(1, "k4"));
+    ASSERT_OK(Put(1, "k5", "v5"));
+    ASSERT_OK(Delete(1, "no_key"));
 
     std::vector<Slice> keys({"k1", "k2", "k3", "k4", "k5", "no_key"});
 
     std::vector<std::string> values(20, "Temporary data to be overwritten");
+    std::vector<ColumnFamilyHandle*> cfs(keys.size(), handles_[1]);
 
     get_perf_context()->Reset();
-    std::vector<Status> s = db_->MultiGet(ReadOptions(), keys, &values);
+    std::vector<Status> s = db_->MultiGet(ReadOptions(), cfs, keys, &values);
     ASSERT_EQ(values.size(), keys.size());
     ASSERT_EQ(values[0], "v1");
     ASSERT_EQ(values[1], "v2");

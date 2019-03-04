@@ -970,7 +970,7 @@ TEST_P(DBTestUniversalCompaction, UniversalCompactionCompressRatio2) {
     dbfull()->TEST_WaitForFlushMemTable();
     dbfull()->TEST_WaitForCompact();
   }
-  ASSERT_LT(TotalSize(), 120000U * 12 * 0.8 + 120000 * 2);
+  ASSERT_LT(TotalSize(), 120000U * 12 * 0.82 + 120000 * 2);
 }
 
 // Test that checks trivial move in universal compaction
@@ -1171,7 +1171,7 @@ TEST_P(DBTestUniversalCompaction, UniversalCompactionFourPaths) {
 TEST_P(DBTestUniversalCompaction, IncreaseUniversalCompactionNumLevels) {
   std::function<void(int)> verify_func = [&](int num_keys_in_db) {
     std::string keys_in_db;
-    Iterator* iter = dbfull()->NewIterator(ReadOptions());
+    Iterator* iter = dbfull()->NewIterator(ReadOptions(), handles_[1]);
     for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
       keys_in_db.append(iter->key().ToString());
       keys_in_db.push_back(',');
@@ -1201,66 +1201,65 @@ TEST_P(DBTestUniversalCompaction, IncreaseUniversalCompactionNumLevels) {
   options.level0_file_num_compaction_trigger = 3;
   options.memtable_factory.reset(new SpecialSkipListFactory(KNumKeysPerFile));
   options = CurrentOptions(options);
-  //CreateAndReopenWithCF({"pikachu"}, options);
-  Reopen(options);
+  CreateAndReopenWithCF({"pikachu"}, options);
 
   for (int i = 0; i <= max_key1; i++) {
     // each value is 10K
-    ASSERT_OK(Put(Key(i), RandomString(&rnd, 10000)));
-    dbfull()->TEST_WaitForFlushMemTable();
+    ASSERT_OK(Put(1, Key(i), RandomString(&rnd, 10000)));
+    dbfull()->TEST_WaitForFlushMemTable(handles_[1]);
     dbfull()->TEST_WaitForCompact();
   }
-  ASSERT_OK(Flush());
+  ASSERT_OK(Flush(1));
   dbfull()->TEST_WaitForCompact();
 
   // Stage 2: reopen with universal compaction, num_levels=4
   options.compaction_style = kCompactionStyleUniversal;
   options.num_levels = 4;
   options = CurrentOptions(options);
-  ReopenWithColumnFamilies({"default"}, options);
+  ReopenWithColumnFamilies({"default", "pikachu"}, options);
 
   verify_func(max_key1);
 
   // Insert more keys
   for (int i = max_key1 + 1; i <= max_key2; i++) {
     // each value is 10K
-    ASSERT_OK(Put(Key(i), RandomString(&rnd, 10000)));
-    dbfull()->TEST_WaitForFlushMemTable();
+    ASSERT_OK(Put(1, Key(i), RandomString(&rnd, 10000)));
+    dbfull()->TEST_WaitForFlushMemTable(handles_[1]);
     dbfull()->TEST_WaitForCompact();
   }
-  ASSERT_OK(Flush());
+  ASSERT_OK(Flush(1));
   dbfull()->TEST_WaitForCompact();
 
   verify_func(max_key2);
   // Compaction to non-L0 has happened.
-  ASSERT_GT(NumTableFilesAtLevel(options.num_levels - 1, 0), 0);
+  ASSERT_GT(NumTableFilesAtLevel(options.num_levels - 1, 1), 0);
 
   // Stage 3: Revert it back to one level and revert to num_levels=1.
   options.num_levels = 4;
   options.target_file_size_base = INT_MAX;
-  ReopenWithColumnFamilies({"default"}, options);
+  ReopenWithColumnFamilies({"default", "pikachu"}, options);
   // Compact all to level 0
   CompactRangeOptions compact_options;
   compact_options.change_level = true;
   compact_options.target_level = 0;
   compact_options.exclusive_manual_compaction = exclusive_manual_compaction_;
-  dbfull()->CompactRange(compact_options, nullptr, nullptr);
+  dbfull()->CompactRange(compact_options, handles_[1], nullptr, nullptr);
   // Need to restart it once to remove higher level records in manifest.
-  ReopenWithColumnFamilies({"default"}, options);
+  ReopenWithColumnFamilies({"default", "pikachu"}, options);
   // Final reopen
   options.compaction_style = kCompactionStyleUniversal;
   options.num_levels = 1;
   options = CurrentOptions(options);
-  ReopenWithColumnFamilies({"default"}, options);
+  ReopenWithColumnFamilies({"default", "pikachu"}, options);
 
   // Insert more keys
   for (int i = max_key2 + 1; i <= max_key3; i++) {
     // each value is 10K
-    ASSERT_OK(Put(Key(i), RandomString(&rnd, 10000)));
-    dbfull()->TEST_WaitForFlushMemTable();
+    ASSERT_OK(Put(1, Key(i), RandomString(&rnd, 10000)));
+    dbfull()->TEST_WaitForFlushMemTable(handles_[1]);
     dbfull()->TEST_WaitForCompact();
   }
-  ASSERT_OK(Flush());
+  ASSERT_OK(Flush(1));
   dbfull()->TEST_WaitForCompact();
   verify_func(max_key3);
 }
@@ -1524,9 +1523,10 @@ TEST_P(DBTestUniversalManualCompactionOutputPathId,
   options.level0_file_num_compaction_trigger = 10;
   Destroy(options);
   DestroyAndReopen(options);
-  MakeTables(3, "p", "q", 0);
+  CreateAndReopenWithCF({"pikachu"}, options);
+  MakeTables(3, "p", "q", 1);
   dbfull()->TEST_WaitForCompact();
-  ASSERT_EQ(2, TotalLiveFiles(0));
+  ASSERT_EQ(2, TotalLiveFiles(1));
   ASSERT_EQ(2, GetSstFileCount(options.db_paths[0].path));
   ASSERT_EQ(0, GetSstFileCount(options.db_paths[1].path));
 
@@ -1534,38 +1534,38 @@ TEST_P(DBTestUniversalManualCompactionOutputPathId,
   CompactRangeOptions compact_options;
   compact_options.target_path_id = 1;
   compact_options.exclusive_manual_compaction = exclusive_manual_compaction_;
-  db_->CompactRange(compact_options, nullptr, nullptr);
-  ASSERT_EQ(1, TotalLiveFiles(0));
+  db_->CompactRange(compact_options, handles_[1], nullptr, nullptr);
+  ASSERT_EQ(1, TotalLiveFiles(1));
   ASSERT_EQ(0, GetSstFileCount(options.db_paths[0].path));
   ASSERT_EQ(1, GetSstFileCount(options.db_paths[1].path));
 
-  ReopenWithColumnFamilies({kDefaultColumnFamilyName}, options);
-  ASSERT_EQ(1, TotalLiveFiles(0));
+  ReopenWithColumnFamilies({kDefaultColumnFamilyName, "pikachu"}, options);
+  ASSERT_EQ(1, TotalLiveFiles(1));
   ASSERT_EQ(0, GetSstFileCount(options.db_paths[0].path));
   ASSERT_EQ(1, GetSstFileCount(options.db_paths[1].path));
 
-  MakeTables(1, "p", "q", 0);
-  ASSERT_EQ(2, TotalLiveFiles(0));
+  MakeTables(1, "p", "q", 1);
+  ASSERT_EQ(2, TotalLiveFiles(1));
   ASSERT_EQ(1, GetSstFileCount(options.db_paths[0].path));
   ASSERT_EQ(1, GetSstFileCount(options.db_paths[1].path));
 
-  ReopenWithColumnFamilies({kDefaultColumnFamilyName}, options);
-  ASSERT_EQ(2, TotalLiveFiles(0));
+  ReopenWithColumnFamilies({kDefaultColumnFamilyName, "pikachu"}, options);
+  ASSERT_EQ(2, TotalLiveFiles(1));
   ASSERT_EQ(1, GetSstFileCount(options.db_paths[0].path));
   ASSERT_EQ(1, GetSstFileCount(options.db_paths[1].path));
 
   // Full compaction to DB path 0
   compact_options.target_path_id = 0;
   compact_options.exclusive_manual_compaction = exclusive_manual_compaction_;
-  db_->CompactRange(compact_options, nullptr, nullptr);
-  ASSERT_EQ(1, TotalLiveFiles(0));
+  db_->CompactRange(compact_options, handles_[1], nullptr, nullptr);
+  ASSERT_EQ(1, TotalLiveFiles(1));
   ASSERT_EQ(1, GetSstFileCount(options.db_paths[0].path));
   ASSERT_EQ(0, GetSstFileCount(options.db_paths[1].path));
 
   // Fail when compacting to an invalid path ID
   compact_options.target_path_id = 2;
   compact_options.exclusive_manual_compaction = exclusive_manual_compaction_;
-  ASSERT_TRUE(db_->CompactRange(compact_options, nullptr, nullptr)
+  ASSERT_TRUE(db_->CompactRange(compact_options, handles_[1], nullptr, nullptr)
                   .IsInvalidArgument());
 }
 

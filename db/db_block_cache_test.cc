@@ -50,7 +50,7 @@ class DBBlockCacheTest : public DBTestBase {
   void InitTable(const Options& options) {
     std::string value(kValueSize, 'a');
     for (size_t i = 0; i < kNumBlocks; i++) {
-      ASSERT_OK(Put(ToString(i), value.c_str(), WriteOptions(), false));
+      ASSERT_OK(Put(ToString(i), value.c_str()));
     }
   }
 

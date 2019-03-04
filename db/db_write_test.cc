@@ -52,7 +52,7 @@ TEST_P(DBWriteTest, ReturnSeuqneceNumber) {
   }
 }
 
-TEST_P(DBWriteTest, DISABLED_ReturnSeuqneceNumberMultiThreaded) {
+TEST_P(DBWriteTest, ReturnSeuqneceNumberMultiThreaded) {
   constexpr size_t kThreads = 16;
   constexpr size_t kNumKeys = 1000;
   Open();
@@ -85,7 +85,7 @@ TEST_P(DBWriteTest, DISABLED_ReturnSeuqneceNumberMultiThreaded) {
   }
 }
 
-TEST_P(DBWriteTest, DISABLED_IOErrorOnWALWritePropagateToWriteThreadFollower) {
+TEST_P(DBWriteTest, IOErrorOnWALWritePropagateToWriteThreadFollower) {
   constexpr int kNumThreads = 5;
   std::unique_ptr<FaultInjectionTestEnv> mock_env(
       new FaultInjectionTestEnv(Env::Default()));
@@ -128,8 +128,8 @@ TEST_P(DBWriteTest, DISABLED_IOErrorOnWALWritePropagateToWriteThreadFollower) {
 
 INSTANTIATE_TEST_CASE_P(DBWriteTestInstance, DBWriteTest,
                         testing::Values(DBTestBase::kDefault,
-                                        DBTestBase::kConcurrentWALWrites/*,
-                                        DBTestBase::kPipelinedWrite*/));
+                                        DBTestBase::kConcurrentWALWrites,
+                                        DBTestBase::kPipelinedWrite));
 
 }  // namespace rocksdb
 

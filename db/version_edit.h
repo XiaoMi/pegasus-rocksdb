@@ -199,9 +199,9 @@ class VersionEdit {
     max_column_family_ = max_column_family;
   }
 
-  void SetValueSchemaVersion(uint32_t value_schema_version) {
-    has_value_schema_version_ = true;
-    value_schema_version_ = value_schema_version;
+  void SetPegasusDataVersion(uint32_t pegasus_data_version) {
+    has_pegasus_data_version_ = true;
+    pegasus_data_version_ = pegasus_data_version;
   }
 
   void SetLastManualCompactFinishTime(uint64_t ms) {
@@ -217,11 +217,7 @@ class VersionEdit {
     return last_sequence_;
   }
 
-  bool HasLastFlushSeqDecree() const {
-    return has_last_flush_seq_decree_;
-  }
-
-  void GetLastFlushSeqDecree(SequenceNumber* sequence, uint64_t* decree) {
+  void GetLastFlushSeqDecree(SequenceNumber* sequence, uint64_t* decree) const {
     *sequence = last_flush_sequence_;
     *decree = last_flush_decree_;
   }
@@ -320,7 +316,7 @@ class VersionEdit {
   uint64_t prev_log_number_;
   uint64_t next_file_number_;
   uint32_t max_column_family_;
-  uint32_t value_schema_version_;
+  uint32_t pegasus_data_version_;
   uint64_t last_manual_compact_finish_time_;
   SequenceNumber last_sequence_;
   // Used to mark the last sequence/decree of flushed memtables.
@@ -334,7 +330,7 @@ class VersionEdit {
   bool has_last_sequence_;
   bool has_last_flush_seq_decree_;
   bool has_max_column_family_;
-  bool has_value_schema_version_;
+  bool has_pegasus_data_version_;
   bool has_last_manual_compact_finish_time_;
 
   DeletedFileSet deleted_files_;

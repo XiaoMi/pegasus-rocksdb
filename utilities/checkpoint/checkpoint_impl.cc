@@ -53,9 +53,9 @@ Status Checkpoint::CreateCheckpointQuick(const std::string& checkpoint_dir,
 // Builds an openable snapshot of RocksDB
 Status CheckpointImpl::CreateCheckpoint(const std::string& checkpoint_dir,
                                         uint64_t log_size_for_flush) {
-  // ATTENTION(laiyingchun): log_size_for_flush should always be 0 to avoid data lost in pegasus.
-  assert(log_size_for_flush == 0);
   DBOptions db_options = db_->GetDBOptions();
+  // ATTENTION(laiyingchun): log_size_for_flush should always be 0 in pegasus.
+  assert(!db_options.pegasus_data || log_size_for_flush == 0);
 
   Status s = db_->GetEnv()->FileExists(checkpoint_dir);
   if (s.ok()) {
@@ -310,10 +310,10 @@ Status CheckpointImpl::CreateCustomCheckpoint(
 }
 
 struct LogReporter : public log::Reader::Reporter {
-  Status* status;
+  Status* status = nullptr;
 
-  virtual void Corruption(size_t bytes, const Status& s) override {
-    if (this->status->ok()) *this->status = s;
+  void Corruption(size_t bytes, const Status& s) override {
+    if (this->status && this->status->ok()) *this->status = s;
   }
 };
 
@@ -484,8 +484,8 @@ Status CheckpointImpl::CreateCheckpointQuick(const std::string& checkpoint_dir,
   db_->EnableFileDeletions(false);
 
   if (s.ok()) {
-    // modify menifest file to set correct last_seq in VersionEdit, because
-    // the last_seq recorded in menifest may be greater than the real value
+    // modify manifest file to set correct last_seq in VersionEdit, because
+    // the last_seq recorded in manifest may be greater than the real value
     assert(!manifest_file_path.empty());
     s = ModifyManifestFileLastSeq(db_->GetEnv(), db_->GetOptions(),
                                   manifest_file_path, last_sequence);

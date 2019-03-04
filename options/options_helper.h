@@ -372,10 +372,14 @@ static std::unordered_map<std::string, OptionTypeInfo> db_options_type_info = {
      {offsetof(struct DBOptions, seq_per_batch), OptionType::kBoolean,
       OptionVerificationType::kNormal, false,
       offsetof(struct ImmutableDBOptions, seq_per_batch)}},
-    {"default_value_schema_version",
-     {offsetof(struct DBOptions, default_value_schema_version), OptionType::kUInt32T,
+    {"pegasus_data",
+     {offsetof(struct DBOptions, pegasus_data), OptionType::kBoolean,
       OptionVerificationType::kNormal, false,
-      offsetof(struct ImmutableDBOptions, default_value_schema_version)}}};
+      offsetof(struct ImmutableDBOptions, pegasus_data)}},
+    {"pegasus_data_version",
+     {offsetof(struct DBOptions, pegasus_data_version), OptionType::kUInt32T,
+      OptionVerificationType::kNormal, false,
+      offsetof(struct ImmutableDBOptions, pegasus_data_version)}}};
 
 // offset_of is used to get the offset of a class data member
 // ex: offset_of(&ColumnFamilyOptions::num_levels)

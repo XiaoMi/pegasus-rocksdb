@@ -195,6 +195,7 @@ DBImpl::DBImpl(const DBOptions& options, const std::string& dbname)
       concurrent_prepare_(options.concurrent_prepare),
       manual_wal_flush_(options.manual_wal_flush),
       seq_per_batch_(options.seq_per_batch),
+      pegasus_data_(options.pegasus_data),
       // TODO(myabandeh): revise this when we change options.seq_per_batch
       use_custom_gc_(options.seq_per_batch),
       preserve_deletes_(options.preserve_deletes) {
@@ -750,31 +751,31 @@ SequenceNumber DBImpl::GetLatestSequenceNumber() const {
   return versions_->LastSequence();
 }
 
-uint64_t DBImpl::GetLastFlushedDecree() {
+uint64_t DBImpl::GetLastFlushedDecree() const {
   SequenceNumber seq;
   uint64_t d;
 
   mutex_.Lock();
   // ATTENTION(qinzuoyan): only use default column family.
-  assert(versions_->GetColumnFamilySet()->NumberOfColumnFamilies() == 1u);
+  assert(!pegasus_data_ || versions_->GetColumnFamilySet()->NumberOfColumnFamilies() == 1u);
   versions_->GetColumnFamilySet()->GetDefault()->current()->GetLastFlushSeqDecree(&seq, &d);
   mutex_.Unlock();
 
   return d;
 }
 
-uint32_t DBImpl::GetValueSchemaVersion() {
-    mutex_.Lock();
-    uint32_t version = versions_->GetColumnFamilySet()->GetValueSchemaVersion();
-    mutex_.Unlock();
-    return version;
+uint32_t DBImpl::GetPegasusDataVersion() const {
+  mutex_.Lock();
+  uint32_t version = versions_->GetColumnFamilySet()->GetPegasusDataVersion();
+  mutex_.Unlock();
+  return version;
 }
 
-uint64_t DBImpl::GetLastManualCompactFinishTime() {
-    mutex_.Lock();
-    uint64_t ms = versions_->GetColumnFamilySet()->GetLastManualCompactFinishTime();
-    mutex_.Unlock();
-    return ms;
+uint64_t DBImpl::GetLastManualCompactFinishTime() const {
+  mutex_.Lock();
+  uint64_t ms = versions_->GetColumnFamilySet()->GetLastManualCompactFinishTime();
+  mutex_.Unlock();
+  return ms;
 }
 
 SequenceNumber DBImpl::IncAndFetchSequenceNumber() {

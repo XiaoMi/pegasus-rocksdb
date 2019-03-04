@@ -520,113 +520,12 @@ Status WinEnvIO::GetFileModificationTime(const std::string& fname,
   return s;
 }
 
-// http://www.codeproject.com/Articles/9089/Deleting-a-directory-along-with-sub-folders
-BOOL WinEnvIO::IsDots(const char* str) {
-    if (strcmp(str, ".") && strcmp(str, "..")) return FALSE;
-    return TRUE;
-}
-
-BOOL WinEnvIO::DeleteDirectory(const char* sPath) {
-  HANDLE hFind;  // file handle
-  WIN32_FIND_DATA FindFileData;
-
-  char DirPath[MAX_PATH];
-  char FileName[MAX_PATH];
-
-  strcpy(DirPath, sPath);
-  strcat(DirPath, "\\*");    // searching all files
-  strcpy(FileName, sPath);
-  strcat(FileName, "\\");
-
-  hFind = FindFirstFileA(DirPath, &FindFileData); // find the first file
-  if (hFind == INVALID_HANDLE_VALUE) return FALSE;
-  strcpy(DirPath, FileName);
-
-  bool bSearch = true;
-  while (bSearch) { // until we finds an entry
-    if (FindNextFileA(hFind, &FindFileData)) {
-      if (IsDots(FindFileData.cFileName)) continue;
-      strcat(FileName, FindFileData.cFileName);
-      if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
-
-        // we have found a directory, recurse
-        if (!DeleteDirectory(FileName)) {
-          auto err = ::GetLastError();
-          FindClose(hFind);
-          ::SetLastError(err);
-          return FALSE; // directory couldn't be deleted
-        }
-        RemoveDirectoryA(FileName); // remove the empty directory
-        strcpy(FileName, DirPath);
-      } else {
-        if (FindFileData.dwFileAttributes & FILE_ATTRIBUTE_READONLY)
-          _chmod(FileName, _S_IWRITE); // change read-only file mode
-        if (!DeleteFileA(FileName)) {  // delete the file
-          auto err = ::GetLastError();
-          FindClose(hFind);
-          ::SetLastError(err);
-          return FALSE;
-        }
-        strcpy(FileName, DirPath);
-      }
-    } else {
-      auto err = ::GetLastError();
-      if (err == ERROR_NO_MORE_FILES) // no more files there
-        bSearch = false;
-      else {
-        // some error occured, close the handle and return FALSE
-        FindClose(hFind);
-        ::SetLastError(err);
-        return FALSE;
-      }
-    }
-  }
-  FindClose(hFind);  // closing file handle
-
-  return RemoveDirectoryA(sPath); // remove the empty directory
-}
-
 Status WinEnvIO::RenameFile(const std::string& src,
   const std::string& target) {
   Status result;
 
   // rename() is not capable of replacing the existing file as on Linux
   // so use OS API directly
-  // however, MOVEFILE_REPLACE_EXISTING for MoveFileEx is not usable when src/target are dirs
-  // we therefore have to do this in multiple steps when for dirs
-  struct _stat64 st;
-  // if exist
-  if (::_stat64(target.c_str(), &st) == 0) {
-    // if file
-    if ((st.st_mode & S_IFMT) == S_IFREG) {
-      if (!MoveFileExA(src.c_str(), target.c_str(), MOVEFILE_REPLACE_EXISTING)) {
-        DWORD lastError = GetLastError();
-
-        std::string text("Failed to rename: ");
-        text.append(src).append(" to: ").append(target);
-
-        result = IOErrorFromWindowsError(text, lastError);
-      }
-
-      return result;
-    }
-
-    // else directory
-    else {
-      if (!DeleteDirectory(target.c_str())) {
-        DWORD lastError = GetLastError();
-
-        std::string text("Failed to remove: ");
-        text.append(target);
-
-        result = IOErrorFromWindowsError(text, lastError);
-
-        return result;
-      }
-    }
-  }
-
-  // retry several times for move file
   if (!MoveFileExA(src.c_str(), target.c_str(), MOVEFILE_REPLACE_EXISTING)) {
     DWORD lastError = GetLastError();
 
@@ -1104,14 +1003,6 @@ Status WinEnv::GetFileSize(const std::string& fname,
 Status  WinEnv::GetFileModificationTime(const std::string& fname,
   uint64_t* file_mtime) {
   return winenv_io_.GetFileModificationTime(fname, file_mtime);
-}
-
-BOOL WinEnv::IsDots(const char* str) {
-  return winenv_io_.IsDots(str);
-}
-
-BOOL WinEnv::DeleteDirectory(const char* sPath) {
-  return winenv_io_.DeleteDirectory(sPath);
 }
 
 Status WinEnv::RenameFile(const std::string& src,

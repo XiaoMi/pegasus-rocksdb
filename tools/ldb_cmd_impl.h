@@ -84,12 +84,14 @@ class DBDumperCommand : public LDBCommand {
   bool count_only_;
   bool count_delim_;
   bool print_stats_;
+  bool pegasus_data_;
   std::string path_;
 
   static const std::string ARG_COUNT_ONLY;
   static const std::string ARG_COUNT_DELIM;
   static const std::string ARG_STATS;
   static const std::string ARG_TTL_BUCKET;
+  static const std::string ARG_PEGASUS_DATA;
 };
 
 class InternalDumpCommand : public LDBCommand {

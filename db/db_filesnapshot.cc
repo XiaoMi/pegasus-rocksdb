@@ -148,7 +148,9 @@ Status DBImpl::GetLiveFiles(std::vector<std::string>& ret,
 Status DBImpl::GetLiveFilesQuick(std::vector<std::string>& ret,
                                  uint64_t* manifest_file_size,
                                  SequenceNumber* last_sequence,
-                                 uint64_t* last_decree) {
+                                 uint64_t* last_decree) const {
+  // ATTENTION(laiyingchun): only used for Pegasus.
+  assert(pegasus_data_);
   *manifest_file_size = 0;
   *last_sequence = 0;
   *last_decree = 0;

@@ -162,7 +162,8 @@ class WriteBatchInternal {
                            uint64_t log_number = 0, DB* db = nullptr,
                            bool concurrent_memtable_writes = false,
                            bool seq_per_batch = false,
-                           uint64_t decree = 0);
+                           uint64_t decree = 0,
+                           bool pegasus_data = false);
 
   // Convenience form of InsertInto when you have only one batch
   // next_seq returns the seq after last sequence number used in MemTable insert
@@ -174,8 +175,7 @@ class WriteBatchInternal {
                            bool concurrent_memtable_writes = false,
                            SequenceNumber* next_seq = nullptr,
                            bool* has_valid_writes = nullptr,
-                           bool seq_per_batch = false,
-                           uint64_t decree = 0);
+                           bool seq_per_batch = false);
 
   static Status InsertInto(WriteThread::Writer* writer, SequenceNumber sequence,
                            ColumnFamilyMemTables* memtables,
@@ -183,8 +183,7 @@ class WriteBatchInternal {
                            bool ignore_missing_column_families = false,
                            uint64_t log_number = 0, DB* db = nullptr,
                            bool concurrent_memtable_writes = false,
-                           bool seq_per_batch = false,
-                           uint64_t decree = 0);
+                           bool seq_per_batch = false);
 
   static Status Append(WriteBatch* dst, const WriteBatch* src,
                        const bool WAL_only = false);

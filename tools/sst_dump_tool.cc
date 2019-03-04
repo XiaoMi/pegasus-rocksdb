@@ -45,9 +45,9 @@ namespace rocksdb {
 
 SstFileReader::SstFileReader(const std::string& file_path,
                              bool verify_checksum,
-                             bool output_hex)
+                             bool output_hex, Options options)
     :file_name_(file_path), read_num_(0), verify_checksum_(verify_checksum),
-    ioptions_(options_),
+    output_hex_(output_hex), options_(std::move(options)), ioptions_(options_),
     internal_comparator_(BytewiseComparator()) {
   fprintf(stdout, "Process %s\n", file_path.c_str());
   init_result_ = GetTableReader(file_name_);
@@ -283,7 +283,7 @@ Status SstFileReader::SetOldTableOptions() {
   return Status::OK();
 }
 
-static size_t escape_string(const char* src, size_t src_len, char* dest, size_t dest_len) {
+size_t escape_string(const char* src, size_t src_len, char* dest, size_t dest_len) {
   const char* src_end = src + src_len;
   size_t used = 0;
   for (; src < src_end; src++) {
@@ -317,49 +317,46 @@ static size_t escape_string(const char* src, size_t src_len, char* dest, size_t 
   return used;
 }
 
-// T must support data() and length() method.
+// T must support data() and size() method.
 template <class T>
 std::string escape_string(const T& src) {
-  const size_t dest_len = src.length() * 4 + 1; // Maximum possible expansion
+  const size_t dest_len = src.size() * 4 + 1; // Maximum possible expansion
   char* dest = new char[dest_len];
-  const size_t used = escape_string(src.data(), src.length(), dest, dest_len);
+  const size_t used = escape_string(src.data(), src.size(), dest, dest_len);
   std::string s(dest, used);
   delete[] dest;
   return s;
 }
 
-// T must support data() and length() method.
+// T must support data() and size() method.
 template <typename T>
-static void pegasus_restore_key(const T& key, std::string& hash_key, std::string& sort_key) {
-  assert(key.length() >= 2);
+void pegasus_restore_key(const T& key, std::string& hash_key, std::string& sort_key) {
+  assert(key.size() >= 2);
   // hash_key_len is in big endian
   uint16_t hash_key_len = be16toh(*(int16_t*)(key.data()));
   if (hash_key_len > 0) {
-    assert(key.length() >= (size_t)(2 + hash_key_len));
+    assert(key.size() >= (size_t)(2 + hash_key_len));
     hash_key.assign(key.data() + 2, hash_key_len);
-  }
-  else {
+  } else {
     hash_key.clear();
   }
-  if (key.length() > (size_t)(2 + hash_key_len)) {
-    sort_key.assign(key.data() + 2 + hash_key_len, key.length() - 2 - hash_key_len);
-  }
-  else {
+  if (key.size() > (size_t)(2 + hash_key_len)) {
+    sort_key.assign(key.data() + 2 + hash_key_len, key.size() - 2 - hash_key_len);
+  } else {
     sort_key.clear();
   }
 }
 
-// T must support data() and length() method.
+// T must support data() and size() method.
 template <typename T>
 void pegasus_restore_value(const T& value, uint32_t& expire_ts, std::string& user_data) {
-  if (value.length() < 4)
+  if (value.size() < 4)
     return;
   // expire_ts is in big endian
   expire_ts = (uint32_t)be32toh(*(int32_t*)(value.data()));
-  if (value.length() > 4) {
-    user_data.assign(value.data() + 4, value.length() - 4);
-  }
-  else {
+  if (value.size() > 4) {
+    user_data.assign(value.data() + 4, value.size() - 4);
+  } else {
     user_data.clear();
   }
 }
@@ -408,16 +405,22 @@ Status SstFileReader::ReadSequential(bool print_kv, uint64_t read_num,
     }
 
     if (print_kv) {
-      if (ikey.user_key.size() >= 2) {
-        uint32_t expire_ts = 0;
-        std::string hash_key, sort_key, user_data;
-        pegasus_restore_key(ikey.user_key, hash_key, sort_key);
-        pegasus_restore_value(value, expire_ts, user_data);
-        std::ostringstream oss;
-        oss << "\"" << escape_string(hash_key) << "\" : \"" << escape_string(sort_key)
-            << "\" @ " << ikey.sequence << " : " << ikey.type << " => "
-            << expire_ts << " : \"" << escape_string(user_data) << "\"";
-        fprintf(stdout, "%s\n", oss.str().c_str());
+      if (!options_.pegasus_data) {
+        fprintf(stdout, "%s => %s\n",
+            ikey.DebugString(output_hex_).c_str(),
+            value.ToString(output_hex_).c_str());
+      } else {
+        if (ikey.user_key.size() >= 2) {
+          uint32_t expire_ts = 0;
+          std::string hash_key, sort_key, user_data;
+          pegasus_restore_key(ikey.user_key, hash_key, sort_key);
+          pegasus_restore_value(value, expire_ts, user_data);
+          std::ostringstream oss;
+          oss << "\"" << escape_string(hash_key) << "\" : \"" << escape_string(sort_key)
+              << "\" @ " << ikey.sequence << " : " << ikey.type << " => "
+              << expire_ts << " : \"" << escape_string(user_data) << "\"";
+          fprintf(stdout, "%s\n", oss.str().c_str());
+        }
       }
     }
   }
@@ -457,6 +460,9 @@ void print_help() {
 
     --output_hex
       Can be combined with scan command to print the keys and values in Hex
+
+    --pegasus_data
+      Whether to read Pegasus data.
 
     --from=<user_key>
       Key to start reading from when executing check|scan
@@ -507,6 +513,7 @@ int SSTDumpTool::Run(int argc, char** argv) {
   uint64_t n;
   bool verify_checksum = false;
   bool output_hex = false;
+  bool pegasus_data = false;
   bool input_key_hex = false;
   bool has_from = false;
   bool has_to = false;
@@ -529,6 +536,8 @@ int SSTDumpTool::Run(int argc, char** argv) {
       dir_or_file = argv[i] + 7;
     } else if (strcmp(argv[i], "--output_hex") == 0) {
       output_hex = true;
+    } else if (strcmp(argv[i], "--pegasus_data") == 0) {
+      pegasus_data = true;
     } else if (strcmp(argv[i], "--input_key_hex") == 0) {
       input_key_hex = true;
     } else if (sscanf(argv[i],
@@ -651,8 +660,10 @@ int SSTDumpTool::Run(int argc, char** argv) {
       filename = std::string(dir_or_file) + "/" + filename;
     }
 
+    Options options;
+    options.pegasus_data = pegasus_data;
     rocksdb::SstFileReader reader(filename, verify_checksum,
-                                  output_hex);
+                                  output_hex, options);
     if (!reader.getStatus().ok()) {
       fprintf(stderr, "%s: %s\n", filename.c_str(),
               reader.getStatus().ToString().c_str());

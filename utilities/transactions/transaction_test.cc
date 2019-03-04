@@ -4,7 +4,7 @@
 //  (found in the LICENSE.Apache file in the root directory).
 
 #ifndef ROCKSDB_LITE
-#ifndef PEGASUS
+
 #ifndef __STDC_FORMAT_MACROS
 #define __STDC_FORMAT_MACROS
 #endif
@@ -4949,5 +4949,5 @@ int main(int argc, char** argv) {
           "SKIPPED as Transactions are not supported in ROCKSDB_LITE\n");
   return 0;
 }
-#endif  // PEGASUS
+
 #endif  // ROCKSDB_LITE

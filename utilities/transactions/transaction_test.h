@@ -4,7 +4,7 @@
 //  (found in the LICENSE.Apache file in the root directory).
 
 #pragma once
-#ifndef PEGASUS
+
 #ifndef __STDC_FORMAT_MACROS
 #define __STDC_FORMAT_MACROS
 #endif
@@ -55,7 +55,8 @@ class TransactionTest : public ::testing::TestWithParam<
     env = new FaultInjectionTestEnv(Env::Default());
     options.env = env;
     options.concurrent_prepare = std::get<1>(GetParam());
-    dbname = test::TmpDir() + "/transaction_testdb";
+    size_t tid = std::hash<std::thread::id>()(std::this_thread::get_id());
+    dbname = test::TmpDir() + "/transaction_testdb_" + std::to_string(tid);
 
     DestroyDB(dbname, options);
     txn_db_options.transaction_lock_timeout = 0;
@@ -242,5 +243,3 @@ class TransactionTest : public ::testing::TestWithParam<
 class MySQLStyleTransactionTest : public TransactionTest {};
 
 }  // namespace rocksdb
-
-#endif  // PEGASUS

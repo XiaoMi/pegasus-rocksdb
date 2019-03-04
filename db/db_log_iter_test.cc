@@ -17,10 +17,9 @@
 
 namespace rocksdb {
 
-// NOTE: WAL is disable in pegasus, so ignore these test cases.
-class DISABLED_DBTestXactLogIterator : public DBTestBase {
+class DBTestXactLogIterator : public DBTestBase {
  public:
-  DISABLED_DBTestXactLogIterator() : DBTestBase("/db_log_iter_test") {}
+  DBTestXactLogIterator() : DBTestBase("/db_log_iter_test") {}
 
   std::unique_ptr<TransactionLogIterator> OpenTransactionLogIter(
       const SequenceNumber seq) {
@@ -59,7 +58,7 @@ void ExpectRecords(
 }
 }  // namespace
 
-TEST_F(DISABLED_DBTestXactLogIterator, TransactionLogIterator) {
+TEST_F(DBTestXactLogIterator, TransactionLogIterator) {
   do {
     Options options = OptionsForLogIterTest();
     DestroyAndReopen(options);
@@ -87,7 +86,7 @@ TEST_F(DISABLED_DBTestXactLogIterator, TransactionLogIterator) {
 }
 
 #ifndef NDEBUG  // sync point is not included with DNDEBUG build
-TEST_F(DISABLED_DBTestXactLogIterator, TransactionLogIteratorRace) {
+TEST_F(DBTestXactLogIterator, TransactionLogIteratorRace) {
   static const int LOG_ITERATOR_RACE_TEST_COUNT = 2;
   static const char* sync_points[LOG_ITERATOR_RACE_TEST_COUNT][4] = {
       {"WalManager::GetSortedWalFiles:1",  "WalManager::PurgeObsoleteFiles:1",
@@ -145,7 +144,7 @@ TEST_F(DISABLED_DBTestXactLogIterator, TransactionLogIteratorRace) {
 }
 #endif
 
-TEST_F(DISABLED_DBTestXactLogIterator, TransactionLogIteratorStallAtLastRecord) {
+TEST_F(DBTestXactLogIterator, TransactionLogIteratorStallAtLastRecord) {
   do {
     Options options = OptionsForLogIterTest();
     DestroyAndReopen(options);
@@ -163,7 +162,7 @@ TEST_F(DISABLED_DBTestXactLogIterator, TransactionLogIteratorStallAtLastRecord) 
   } while (ChangeCompactOptions());
 }
 
-TEST_F(DISABLED_DBTestXactLogIterator, TransactionLogIteratorCheckAfterRestart) {
+TEST_F(DBTestXactLogIterator, TransactionLogIteratorCheckAfterRestart) {
   do {
     Options options = OptionsForLogIterTest();
     DestroyAndReopen(options);
@@ -176,7 +175,7 @@ TEST_F(DISABLED_DBTestXactLogIterator, TransactionLogIteratorCheckAfterRestart) 
   } while (ChangeCompactOptions());
 }
 
-TEST_F(DISABLED_DBTestXactLogIterator, TransactionLogIteratorCorruptedLog) {
+TEST_F(DBTestXactLogIterator, TransactionLogIteratorCorruptedLog) {
   do {
     Options options = OptionsForLogIterTest();
     DestroyAndReopen(options);
@@ -211,7 +210,7 @@ TEST_F(DISABLED_DBTestXactLogIterator, TransactionLogIteratorCorruptedLog) {
   } while (ChangeCompactOptions());
 }
 
-TEST_F(DISABLED_DBTestXactLogIterator, TransactionLogIteratorBatchOperations) {
+TEST_F(DBTestXactLogIterator, TransactionLogIteratorBatchOperations) {
   do {
     Options options = OptionsForLogIterTest();
     DestroyAndReopen(options);
@@ -231,7 +230,7 @@ TEST_F(DISABLED_DBTestXactLogIterator, TransactionLogIteratorBatchOperations) {
   } while (ChangeCompactOptions());
 }
 
-TEST_F(DISABLED_DBTestXactLogIterator, TransactionLogIteratorBlobs) {
+TEST_F(DBTestXactLogIterator, TransactionLogIteratorBlobs) {
   Options options = OptionsForLogIterTest();
   DestroyAndReopen(options);
   CreateAndReopenWithCF({"pikachu"}, options);

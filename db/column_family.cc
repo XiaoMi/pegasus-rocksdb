@@ -1006,7 +1006,7 @@ ColumnFamilySet::ColumnFamilySet(const std::string& dbname,
                                  WriteBufferManager* write_buffer_manager,
                                  WriteController* write_controller)
     : max_column_family_(0),
-      value_schema_version_(db_options->default_value_schema_version),
+      pegasus_data_version_(db_options->pegasus_data_version),
       last_manual_compact_finish_time_(0),
       dummy_cfd_(new ColumnFamilyData(0, "", nullptr, nullptr, nullptr,
                                       ColumnFamilyOptions(), *db_options,
@@ -1074,18 +1074,18 @@ size_t ColumnFamilySet::NumberOfColumnFamilies() const {
   return column_families_.size();
 }
 
-uint32_t ColumnFamilySet::GetValueSchemaVersion() { return value_schema_version_; }
+uint32_t ColumnFamilySet::GetPegasusDataVersion() const { return pegasus_data_version_; }
 
-void ColumnFamilySet::SetValueSchemaVersion(uint32_t version) {
-    value_schema_version_ = version;
+void ColumnFamilySet::SetPegasusDataVersion(uint32_t version) {
+  pegasus_data_version_ = version;
 }
 
-uint64_t ColumnFamilySet::GetLastManualCompactFinishTime() {
+uint64_t ColumnFamilySet::GetLastManualCompactFinishTime() const {
   return last_manual_compact_finish_time_;
 }
 
 void ColumnFamilySet::SetLastManualCompactFinishTime(uint64_t ms) {
-    last_manual_compact_finish_time_ = ms;
+  last_manual_compact_finish_time_ = ms;
 }
 
 // under a DB mutex AND write thread

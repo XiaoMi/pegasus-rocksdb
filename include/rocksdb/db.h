@@ -884,12 +884,12 @@ class DB {
   virtual bool SetPreserveDeletesSequenceNumber(SequenceNumber seqnum) = 0;
 
   // The last flushed decree.
-  virtual uint64_t GetLastFlushedDecree() { return 0; }
+  virtual uint64_t GetLastFlushedDecree() const { return 0; }
 
-  // The value schame version.
-  virtual uint32_t GetValueSchemaVersion() { return 0; }
+  // The Pegasus data version.
+  virtual uint32_t GetPegasusDataVersion() const { return 0; }
 
-  virtual uint64_t GetLastManualCompactFinishTime() { return 0; }
+  virtual uint64_t GetLastManualCompactFinishTime() const { return 0; }
 
 #ifndef ROCKSDB_LITE
 
@@ -933,7 +933,7 @@ class DB {
   virtual Status GetLiveFilesQuick(std::vector<std::string>& ret,
                                    uint64_t* manifest_file_size,
                                    SequenceNumber* last_sequence,
-                                   uint64_t* last_decree) { return Status::NotSupported(); }
+                                   uint64_t* last_decree) const { return Status::NotSupported(); }
 
   // Retrieve the sorted list of all wal files with earliest file first
   virtual Status GetSortedWalFiles(VectorLogPtr& files) = 0;

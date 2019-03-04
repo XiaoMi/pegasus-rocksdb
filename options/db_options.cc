@@ -88,7 +88,8 @@ ImmutableDBOptions::ImmutableDBOptions(const DBOptions& options)
       concurrent_prepare(options.concurrent_prepare),
       manual_wal_flush(options.manual_wal_flush),
       seq_per_batch(options.seq_per_batch),
-      default_value_schema_version(options.default_value_schema_version) {
+      pegasus_data(options.pegasus_data),
+      pegasus_data_version(options.pegasus_data_version) {
 }
 
 void ImmutableDBOptions::Dump(Logger* log) const {
@@ -223,8 +224,9 @@ void ImmutableDBOptions::Dump(Logger* log) const {
   ROCKS_LOG_HEADER(log, "            Options.manual_wal_flush: %d",
                    manual_wal_flush);
   ROCKS_LOG_HEADER(log, "            Options.seq_per_batch: %d", seq_per_batch);
-  ROCKS_LOG_HEADER(log, "            Options.default_value_schema_version: %d",
-                   default_value_schema_version);
+  ROCKS_LOG_HEADER(log, "            Options.pegasus_data: %d", pegasus_data);
+  ROCKS_LOG_HEADER(log, "            Options.pegasus_data_version: %d",
+                   pegasus_data_version);
 }
 
 MutableDBOptions::MutableDBOptions()

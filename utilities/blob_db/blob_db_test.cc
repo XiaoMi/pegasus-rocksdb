@@ -618,7 +618,7 @@ TEST_F(BlobDBTest, MultipleWriters) {
 
   std::vector<port::Thread> workers;
   std::vector<std::map<std::string, std::string>> data_set(10);
-  for (uint32_t i = 0; i < 1; i++)
+  for (uint32_t i = 0; i < 10; i++)
     workers.push_back(port::Thread(
         [&](uint32_t id) {
           Random rnd(301 + id);
@@ -635,7 +635,7 @@ TEST_F(BlobDBTest, MultipleWriters) {
         },
         i));
   std::map<std::string, std::string> data;
-  for (size_t i = 0; i < 1; i++) {
+  for (size_t i = 0; i < 10; i++) {
     workers[i].join();
     data.insert(data_set[i].begin(), data_set[i].end());
   }
@@ -680,7 +680,7 @@ TEST_F(BlobDBTest, GCAfterOverwriteKeys) {
   VerifyDB(data);
 }
 
-TEST_F(BlobDBTest, DISABLED_GCRelocateKeyWhileOverwriting) {
+TEST_F(BlobDBTest, GCRelocateKeyWhileOverwriting) {
   Random rnd(301);
   BlobDBOptions bdb_options;
   bdb_options.min_blob_size = 0;
@@ -711,7 +711,7 @@ TEST_F(BlobDBTest, DISABLED_GCRelocateKeyWhileOverwriting) {
   VerifyDB({{"foo", "v2"}});
 }
 
-TEST_F(BlobDBTest, DISABLED_GCExpiredKeyWhileOverwriting) {
+TEST_F(BlobDBTest, GCExpiredKeyWhileOverwriting) {
   Random rnd(301);
   Options options;
   options.env = mock_env_.get();

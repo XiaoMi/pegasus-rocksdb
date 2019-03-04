@@ -63,7 +63,8 @@ DBTestBase::DBTestBase(const std::string path)
       option_config_(kDefault) {
   env_->SetBackgroundThreads(1, Env::LOW);
   env_->SetBackgroundThreads(1, Env::HIGH);
-  dbname_ = test::TmpDir(env_) + path;
+  size_t tid = std::hash<std::thread::id>()(std::this_thread::get_id());
+  dbname_ = test::TmpDir(env_) + path + "_" + std::to_string(tid);
   alternative_wal_dir_ = dbname_ + "/wal";
   alternative_db_log_dir_ = dbname_ + "/db_log_dir";
   auto options = CurrentOptions();
@@ -147,9 +148,6 @@ bool DBTestBase::ShouldSkipOptions(int option_config, int skip_mask) {
       return true;
     }
     if ((skip_mask & kSkipMmapReads) && option_config == kWalDirAndMmapReads) {
-      return true;
-    }
-    if ((skip_mask & kSkipPipelinedWrite) && option_config == kPipelinedWrite) {
       return true;
     }
     return false;
@@ -620,16 +618,15 @@ bool DBTestBase::IsMemoryMappedAccessSupported() const {
   return (!encrypted_env_);
 }
 
-Status DBTestBase::Flush(int cf, const FlushOptions& options) {
+Status DBTestBase::Flush(int cf) {
   if (cf == 0) {
-    return db_->Flush(options);
+    return db_->Flush(FlushOptions());
   } else {
-    return db_->Flush(options, handles_[cf]);
+    return db_->Flush(FlushOptions(), handles_[cf]);
   }
 }
 
-Status DBTestBase::Put(const Slice& k, const Slice& v, WriteOptions wo, bool disableWAL) {
-  wo.disableWAL = disableWAL;
+Status DBTestBase::Put(const Slice& k, const Slice& v, WriteOptions wo) {
   if (kMergePut == option_config_) {
     return db_->Merge(wo, k, v);
   } else {
@@ -640,17 +637,9 @@ Status DBTestBase::Put(const Slice& k, const Slice& v, WriteOptions wo, bool dis
 Status DBTestBase::Put(int cf, const Slice& k, const Slice& v,
                        WriteOptions wo) {
   if (kMergePut == option_config_) {
-    if (cf == 0) {
-      return db_->Merge(wo, k, v);
-    } else {
-      return db_->Merge(wo, handles_[cf], k, v);
-    }
+    return db_->Merge(wo, handles_[cf], k, v);
   } else {
-    if (cf == 0) {
-      return db_->Put(wo, k, v);
-    } else {
-        return db_->Put(wo, handles_[cf], k, v);
-    }
+    return db_->Put(wo, handles_[cf], k, v);
   }
 }
 
@@ -996,13 +985,7 @@ void DBTestBase::MakeTables(int n, const std::string& small,
 // tables that cover a specified range to all levels.
 void DBTestBase::FillLevels(const std::string& smallest,
                             const std::string& largest, int cf) {
-  int levels = 0;
-  if (cf == 0) {
-    levels = db_->NumberLevels();
-  } else {
-    levels = db_->NumberLevels(handles_[cf]);
-  }
-  MakeTables(levels, smallest, largest, cf);
+  MakeTables(db_->NumberLevels(handles_[cf]), smallest, largest, cf);
 }
 
 void DBTestBase::MoveFilesToLevel(int level, int cf) {
@@ -1065,9 +1048,9 @@ void DBTestBase::GenerateNewFile(int cf, Random* rnd, int* key_idx,
 }
 
 // this will generate non-overlapping files since it keeps increasing key_idx
-void DBTestBase::GenerateNewFile(Random* rnd, int* key_idx, bool nowait, bool disableWAL) {
+void DBTestBase::GenerateNewFile(Random* rnd, int* key_idx, bool nowait) {
   for (int i = 0; i < KNumKeysByGenerateNewFile; i++) {
-    ASSERT_OK(Put(Key(*key_idx), RandomString(rnd, (i == 99) ? 1 : 990), WriteOptions(), disableWAL));
+    ASSERT_OK(Put(Key(*key_idx), RandomString(rnd, (i == 99) ? 1 : 990)));
     (*key_idx)++;
   }
   if (!nowait) {

@@ -261,6 +261,7 @@ void RandomInitDBOptions(DBOptions* db_opt, Random* rnd) {
   db_opt->recycle_log_file_num = rnd->Uniform(2);
   db_opt->avoid_flush_during_recovery = rnd->Uniform(2);
   db_opt->avoid_flush_during_shutdown = rnd->Uniform(2);
+  db_opt->pegasus_data = rnd->Uniform(2);
 
   // int options
   db_opt->max_background_compactions = rnd->Uniform(100);
@@ -282,6 +283,7 @@ void RandomInitDBOptions(DBOptions* db_opt, Random* rnd) {
 
   // uint32_t options
   db_opt->max_subcompactions = rnd->Uniform(100000);
+  db_opt->pegasus_data_version = rnd->Uniform(100000);
 
   // uint64_t options
   static const uint64_t uint_max = static_cast<uint64_t>(UINT_MAX);

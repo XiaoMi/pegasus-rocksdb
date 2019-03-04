@@ -723,7 +723,6 @@ class DBTestBase : public testing::Test {
     kSkipHashCuckoo = 64,
     kSkipFIFOCompaction = 128,
     kSkipMmapReads = 256,
-    kSkipPipelinedWrite = 512,
   };
 
   explicit DBTestBase(const std::string path);
@@ -809,9 +808,9 @@ class DBTestBase : public testing::Test {
 
   bool IsMemoryMappedAccessSupported() const;
 
-  Status Flush(int cf = 0, const FlushOptions& options = FlushOptions());
+  Status Flush(int cf = 0);
 
-  Status Put(const Slice& k, const Slice& v, WriteOptions wo = WriteOptions(), bool disableWAL = true);
+  Status Put(const Slice& k, const Slice& v, WriteOptions wo = WriteOptions());
 
   Status Put(int cf, const Slice& k, const Slice& v,
              WriteOptions wo = WriteOptions());
@@ -902,7 +901,7 @@ class DBTestBase : public testing::Test {
   int GetSstFileCount(std::string path);
 
   // this will generate non-overlapping files since it keeps increasing key_idx
-  void GenerateNewFile(Random* rnd, int* key_idx, bool nowait = false, bool disableWAL = true);
+  void GenerateNewFile(Random* rnd, int* key_idx, bool nowait = false);
 
   void GenerateNewFile(int fd, Random* rnd, int* key_idx, bool nowait = false);
 

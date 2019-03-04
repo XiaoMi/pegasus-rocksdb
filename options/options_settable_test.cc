@@ -286,7 +286,8 @@ TEST_F(OptionsSettableTest, DBOptionsAllFieldsSettable) {
                              "concurrent_prepare=false;"
                              "manual_wal_flush=false;"
                              "seq_per_batch=false;"
-                             "default_value_schema_version=0;",
+                             "pegasus_data=false;"
+                             "pegasus_data_version=0;",
                              new_options));
 
   ASSERT_EQ(unset_bytes_base, NumUnsetBytes(new_options_ptr, sizeof(DBOptions),

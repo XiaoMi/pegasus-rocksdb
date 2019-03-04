@@ -987,7 +987,9 @@ Status DBImpl::FlushMemTable(ColumnFamilyData* cfd,
       return Status::OK();
     }
 
-    if (!cfd->mem()->IsEmpty()) {
+    // ATTENTION(laiyingchun): An optimization to avoid switching empty memtable
+    // for Pegasus(single CF).
+    if (!pegasus_data_ || !cfd->mem()->IsEmpty()) {
       WriteThread::Writer w;
       if (!writes_stopped) {
         write_thread_.EnterUnbatched(&w, &mutex_);

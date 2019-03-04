@@ -140,9 +140,7 @@ class CompactionJobStatsTest : public testing::Test,
     size_t cfi = handles_.size();
     handles_.resize(cfi + cfs.size());
     for (auto cf : cfs) {
-      if (cf != "default") {
-        ASSERT_OK(db_->CreateColumnFamily(cf_opts, cf, &handles_[cfi++]));
-      }
+      ASSERT_OK(db_->CreateColumnFamily(cf_opts, cf, &handles_[cfi++]));
     }
   }
 
@@ -666,7 +664,7 @@ TEST_P(CompactionJobStatsTest, CompactionJobStatsTest) {
   options.report_bg_io_stats = true;
   for (int test = 0; test < 2; ++test) {
     DestroyAndReopen(options);
-    CreateAndReopenWithCF({"default"}, options);
+    CreateAndReopenWithCF({"pikachu"}, options);
 
     // 1st Phase: generate "num_L0_files" L0 files.
     int num_L0_files = 0;
@@ -884,7 +882,7 @@ TEST_P(CompactionJobStatsTest, DeletionStatsTest) {
   options.max_subcompactions = max_subcompactions_;
 
   DestroyAndReopen(options);
-  CreateAndReopenWithCF({"default"}, options);
+  CreateAndReopenWithCF({"pikachu"}, options);
 
   // Stage 1: Generate several L0 files and then send them to L2 by
   // using CompactRangeOptions and CompactRange(). These files will
@@ -976,7 +974,7 @@ TEST_P(CompactionJobStatsTest, UniversalCompactionTest) {
   options.max_subcompactions = max_subcompactions_;
 
   DestroyAndReopen(options);
-  CreateAndReopenWithCF({"default"}, options);
+  CreateAndReopenWithCF({"pikachu"}, options);
 
   // Generates the expected CompactionJobStats for each compaction
   for (uint32_t num_flushes = 2; num_flushes <= kTestScale; num_flushes++) {

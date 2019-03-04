@@ -46,7 +46,8 @@ class CheckpointTest : public testing::Test {
   CheckpointTest() : env_(Env::Default()) {
     env_->SetBackgroundThreads(1, Env::LOW);
     env_->SetBackgroundThreads(1, Env::HIGH);
-    dbname_ = test::TmpDir(env_) + "/db_test";
+    size_t tid = std::hash<std::thread::id>()(std::this_thread::get_id());
+    dbname_ = test::TmpDir(env_) + "/db_test_" + std::to_string(tid);
     alternative_wal_dir_ = dbname_ + "/wal";
     auto options = CurrentOptions();
     auto delete_options = options;
@@ -217,7 +218,7 @@ class CheckpointTest : public testing::Test {
 };
 
 TEST_F(CheckpointTest, GetSnapshotLink) {
-  for (uint64_t log_size_for_flush : {0}) {     // PEGASUS: log_size_for_flush should always be zero
+  for (uint64_t log_size_for_flush : {0, 1000000}) {
     Options options;
     const std::string snapshot_name = test::TmpDir(env_) + "/snapshot";
     DB* snapshotDB;
@@ -347,7 +348,7 @@ TEST_F(CheckpointTest, CheckpointCF) {
   ASSERT_OK(DestroyDB(snapshot_name, options));
 }
 
-TEST_F(CheckpointTest, DISABLED_CheckpointCFNoFlush) {
+TEST_F(CheckpointTest, CheckpointCFNoFlush) {
   Options options = CurrentOptions();
   CreateAndReopenWithCF({"one", "two", "three", "four", "five"}, options);
 
@@ -457,7 +458,7 @@ TEST_F(CheckpointTest, CurrentFileModifiedWhileCheckpointing) {
   snapshotDB = nullptr;
 }
 
-TEST_F(CheckpointTest, DISABLED_CurrentFileModifiedWhileCheckpointing2PC) {
+TEST_F(CheckpointTest, CurrentFileModifiedWhileCheckpointing2PC) {
   Close();
   const std::string kSnapshotName = test::TmpDir(env_) + "/snapshot";
   const std::string dbname = test::TmpDir() + "/transaction_testdb";
