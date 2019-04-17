@@ -796,6 +796,8 @@ class VersionSet {
 
   // Return the last flush sequence number of default column family.
   uint64_t LastFlushSequence() {
+    assert(db_options_->pegasus_data);
+    assert(column_family_set_->NumberOfColumnFamilies() == 1u);
     SequenceNumber seq;
     uint64_t d;
     column_family_set_->GetDefault()->current()->GetLastFlushSeqDecree(&seq, &d);

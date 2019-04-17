@@ -2472,12 +2472,14 @@ void VersionSet::AppendVersion(ColumnFamilyData* column_family_data,
   assert(v != current);
   if (current != nullptr) {
     assert(current->refs_ > 0);
-    // inherit last sequence/decree from old version, but for flush the old
-    // value would not take effect.
-    SequenceNumber seq;
-    uint64_t d;
-    current->GetLastFlushSeqDecree(&seq, &d);
-    v->UpdateLastFlushSeqDecree(seq, d);
+    if (db_options_->pegasus_data) {
+      // inherit last sequence/decree from old version, but for flush the old
+      // value would not take effect.
+      SequenceNumber seq;
+      uint64_t d;
+      current->GetLastFlushSeqDecree(&seq, &d);
+      v->UpdateLastFlushSeqDecree(seq, d);
+    }
     current->Unref();
   }
   column_family_data->SetCurrent(v);
@@ -2718,11 +2720,13 @@ Status VersionSet::LogAndApply(ColumnFamilyData* column_family_data,
           max_log_number_in_batch =
               std::max(max_log_number_in_batch, e->log_number_);
         }
-        // update last flush sequence/decree from VersionEdit
-        SequenceNumber seq;
-        uint64_t d;
-        e->GetLastFlushSeqDecree(&seq, &d);
-        v->UpdateLastFlushSeqDecree(seq, d);
+        if (db_options_->pegasus_data) {
+          // update last flush sequence/decree from VersionEdit
+          SequenceNumber seq;
+          uint64_t d;
+          e->GetLastFlushSeqDecree(&seq, &d);
+          v->UpdateLastFlushSeqDecree(seq, d);
+        }
       }
       if (max_log_number_in_batch != 0) {
         assert(column_family_data->GetLogNumber() <= max_log_number_in_batch);
@@ -2785,10 +2789,13 @@ void VersionSet::LogAndApplyCFHelper(VersionEdit* edit) {
   edit->SetLastSequence(db_options_->concurrent_prepare
                             ? last_to_be_written_sequence_
                             : last_sequence_);
-  SequenceNumber seq;
-  uint64_t d;
-  column_family_set_->GetDefault()->current()->GetLastFlushSeqDecree(&seq, &d);
-  edit->UpdateLastFlushSeqDecree(seq, d);
+  if (db_options_->pegasus_data) {
+    assert(column_family_set_->NumberOfColumnFamilies() == 1u);
+    SequenceNumber seq;
+    uint64_t d;
+    column_family_set_->GetDefault()->current()->GetLastFlushSeqDecree(&seq, &d);
+    edit->UpdateLastFlushSeqDecree(seq, d);
+  }
   if (edit->is_column_family_drop_) {
     // if we drop column family, we have to make sure to save max column family,
     // so that we don't reuse existing ID
@@ -2819,10 +2826,13 @@ void VersionSet::LogAndApplyHelper(ColumnFamilyData* cfd,
   edit->SetLastSequence(db_options_->concurrent_prepare
                             ? last_to_be_written_sequence_
                             : last_sequence_);
-  SequenceNumber seq;
-  uint64_t d;
-  column_family_set_->GetDefault()->current()->GetLastFlushSeqDecree(&seq, &d);
-  edit->UpdateLastFlushSeqDecree(seq, d);
+  if (db_options_->pegasus_data) {
+    assert(column_family_set_->NumberOfColumnFamilies() == 1u);
+    SequenceNumber seq;
+    uint64_t d;
+    column_family_set_->GetDefault()->current()->GetLastFlushSeqDecree(&seq, &d);
+    edit->UpdateLastFlushSeqDecree(seq, d);
+  }
 
   uint64_t ms = column_family_set_->GetLastManualCompactFinishTime();
   edit->SetLastManualCompactFinishTime(ms);
@@ -3072,11 +3082,15 @@ Status VersionSet::Recover(
     } else if (!have_last_sequence) {
       s = Status::Corruption("no last-sequence-number entry in descriptor");
     } else if (!have_value_schema_version) {
-      s = Status::Corruption("no value-schema-version entry in descriptor");
+      if (db_options_->pegasus_data) {
+        s = Status::Corruption("no value_schema_version entry in descriptor");
+      } else {
+        ROCKS_LOG_WARN(db_options_->info_log,
+                       "no value_schema_version entry in descriptor");
+      }
     } else if (!have_last_manual_compact_finish_time) {
       ROCKS_LOG_WARN(db_options_->info_log,
-                     "no last-manual-compact-finish-time entry in descriptor,"
-                     " it can be only occurred when update from a lower version");
+                     "no last-manual-compact-finish-time entry in descriptor");
     }
 
     if (!have_prev_log_number) {
@@ -3139,9 +3153,11 @@ Status VersionSet::Recover(
           new Version(cfd, this, env_options_, current_version_number_++);
       builder->SaveTo(v->storage_info());
 
-      // update last flush sequence/decree
-      auto& p = last_flush_seq_decree_map[cfd->GetID()];
-      v->UpdateLastFlushSeqDecree(p.first, p.second);
+      if (db_options_->pegasus_data) {
+        // update last flush sequence/decree
+        auto &p = last_flush_seq_decree_map[cfd->GetID()];
+        v->UpdateLastFlushSeqDecree(p.first, p.second);
+      }
 
       // Install recovered version
       v->PrepareApply(*cfd->GetLatestMutableCFOptions(),
@@ -3159,7 +3175,7 @@ Status VersionSet::Recover(
         db_options_->info_log,
         "Recovered from manifest file:%s succeeded,"
         "manifest_file_number is %lu, next_file_number is %lu, "
-        "last_sequence is %lu, last_flush_sequence is %lu, log_number is %lu,"
+        "last_sequence is %lu, log_number is %lu,"
         "prev_log_number is %lu,"
         "max_column_family is %u,"
         "value_schema_version is %u,"
@@ -3172,12 +3188,14 @@ Status VersionSet::Recover(
         column_family_set_->GetValueSchemaVersion(),
         column_family_set_->GetLastManualCompactFinishTime());
 
-    // for pegasus, we have disabled WAL, so we need to reset last_sequence to
-    // last_flush_sequence
-    last_sequence_ = LastFlushSequence();
-    ROCKS_LOG_INFO(db_options_->info_log,
-        "Reset last_sequence to last_flush_sequence: %lu",
-        (unsigned long)last_sequence_);
+    if (db_options_->pegasus_data) {
+      // For Pegasus, we have disabled WAL, so we need to reset last_sequence to
+      // last_flush_sequence.
+      last_sequence_ = LastFlushSequence();
+      ROCKS_LOG_INFO(db_options_->info_log,
+                     "Reset last_sequence to last_flush_sequence: %lu",
+                     (unsigned long)last_sequence_);
+    }
 
     for (auto cfd : *column_family_set_) {
       if (cfd->IsDropped()) {

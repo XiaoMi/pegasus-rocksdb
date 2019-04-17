@@ -123,6 +123,8 @@ DBOptions BuildDBOptions(const ImmutableDBOptions& immutable_db_options,
       immutable_db_options.allow_ingest_behind;
   options.preserve_deletes =
       immutable_db_options.preserve_deletes;
+  options.pegasus_data =
+      immutable_db_options.pegasus_data;
 
   return options;
 }
