@@ -3182,7 +3182,6 @@ Status VersionSet::Recover(
         "last_manual_compact_finish_time is %lu\n",
         manifest_filename.c_str(), (unsigned long)manifest_file_number_,
         (unsigned long)next_file_number_.load(), (unsigned long)last_sequence_,
-        (unsigned long)LastFlushSequence(),
         (unsigned long)log_number, (unsigned long)prev_log_number_,
         column_family_set_->GetMaxColumnFamily(),
         column_family_set_->GetValueSchemaVersion(),
