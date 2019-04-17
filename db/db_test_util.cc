@@ -63,7 +63,8 @@ DBTestBase::DBTestBase(const std::string path)
       option_config_(kDefault) {
   env_->SetBackgroundThreads(1, Env::LOW);
   env_->SetBackgroundThreads(1, Env::HIGH);
-  dbname_ = test::TmpDir(env_) + path;
+  size_t tid = std::hash<std::thread::id>()(std::this_thread::get_id());
+  dbname_ = test::TmpDir(env_) + path + "_" + std::to_string(tid);
   alternative_wal_dir_ = dbname_ + "/wal";
   alternative_db_log_dir_ = dbname_ + "/db_log_dir";
   auto options = CurrentOptions();
