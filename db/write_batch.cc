@@ -1090,7 +1090,7 @@ class MemTableInserter : public WriteBatch::Handler {
         }
       }
     }
-    // Since all Puts are logged in transaction logs (if enabled), always bump
+    // Since all Puts are logged in trasaction logs (if enabled), always bump
     // sequence number. Even if the update eventually fails and does not result
     // in memtable add/update.
     if (pegasus_data_) {

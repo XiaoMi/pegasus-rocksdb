@@ -2596,7 +2596,7 @@ Status VersionSet::LogAndApply(ColumnFamilyData* column_family_data,
       w.edit_list.front()->SetMaxColumnFamily(
           column_family_set_->GetMaxColumnFamily());
     }
-    // also we need to persist value schema version
+    // also we need to persist Pegasus data version
     w.edit_list.front()->SetPegasusDataVersion(
         column_family_set_->GetPegasusDataVersion());
   }
@@ -3085,9 +3085,6 @@ Status VersionSet::Recover(
     } else if (!have_pegasus_data_version) {
       if (db_options_->pegasus_data) {
         s = Status::Corruption("no pegasus-data-version entry in descriptor");
-      } else {
-        ROCKS_LOG_WARN(db_options_->info_log,
-                       "no pegasus-data-version entry in descriptor");
       }
     } else if (!have_last_manual_compact_finish_time) {
       ROCKS_LOG_WARN(db_options_->info_log,
