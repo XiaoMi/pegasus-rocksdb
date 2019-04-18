@@ -217,11 +217,7 @@ class VersionEdit {
     return last_sequence_;
   }
 
-  bool HasLastFlushSeqDecree() const {
-    return has_last_flush_seq_decree_;
-  }
-
-  void GetLastFlushSeqDecree(SequenceNumber* sequence, uint64_t* decree) {
+  void GetLastFlushSeqDecree(SequenceNumber* sequence, uint64_t* decree) const {
     *sequence = last_flush_sequence_;
     *decree = last_flush_decree_;
   }

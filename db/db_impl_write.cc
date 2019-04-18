@@ -231,7 +231,6 @@ Status DBImpl::WriteImpl(const WriteOptions& write_options,
     size_t seq_inc = seq_per_batch_ ? write_group.size : total_count;
 
     const bool concurrent_update = concurrent_prepare_;
-
     // Update stats while we are an exclusive group leader, so we know
     // that nobody else can be writing to these particular stats.
     // We're optimistic, updating the stats before we successfully
@@ -278,9 +277,8 @@ Status DBImpl::WriteImpl(const WriteOptions& write_options,
       }
     }
     assert(last_sequence != kMaxSequenceNumber);
-    const SequenceNumber current_sequence = write_options.given_sequence_number == 0 ?
-                                            (last_sequence + 1) : write_options.given_sequence_number;
-    last_sequence = current_sequence + seq_inc - 1;
+    const SequenceNumber current_sequence = last_sequence + 1;
+    last_sequence += seq_inc;
 
     if (status.ok()) {
       PERF_TIMER_GUARD(write_memtable_time);

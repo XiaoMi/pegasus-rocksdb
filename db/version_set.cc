@@ -2478,7 +2478,7 @@ void VersionSet::AppendVersion(ColumnFamilyData* column_family_data,
       SequenceNumber seq;
       uint64_t d;
       current->GetLastFlushSeqDecree(&seq, &d);
-      v->UpdateLastFlushSeqDecree(seq, d);
+      v->UpdateLastFlushSeqDecreeIfNeeded(seq, d);
     }
     current->Unref();
   }
@@ -2725,7 +2725,7 @@ Status VersionSet::LogAndApply(ColumnFamilyData* column_family_data,
           SequenceNumber seq;
           uint64_t d;
           e->GetLastFlushSeqDecree(&seq, &d);
-          v->UpdateLastFlushSeqDecree(seq, d);
+          v->UpdateLastFlushSeqDecreeIfNeeded(seq, d);
         }
       }
       if (max_log_number_in_batch != 0) {
@@ -3153,7 +3153,7 @@ Status VersionSet::Recover(
       if (db_options_->pegasus_data) {
         // update last flush sequence/decree
         auto &p = last_flush_seq_decree_map[cfd->GetID()];
-        v->UpdateLastFlushSeqDecree(p.first, p.second);
+        v->UpdateLastFlushSeqDecreeIfNeeded(p.first, p.second);
       }
 
       // Install recovered version
@@ -3547,7 +3547,7 @@ Status VersionSet::DumpManifest(Options& options, std::string& dscname,
       builder->SaveTo(v->storage_info());
 
       auto& p = last_flush_seq_decree_map[cfd->GetID()];
-      v->UpdateLastFlushSeqDecree(p.first, p.second);
+      v->UpdateLastFlushSeqDecreeIfNeeded(p.first, p.second);
 
       v->PrepareApply(*cfd->GetLatestMutableCFOptions(), false);
 

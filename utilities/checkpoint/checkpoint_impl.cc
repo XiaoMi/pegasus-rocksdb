@@ -310,10 +310,10 @@ Status CheckpointImpl::CreateCustomCheckpoint(
 }
 
 struct LogReporter : public log::Reader::Reporter {
-  Status* status;
+  Status* status = nullptr;
 
-  virtual void Corruption(size_t bytes, const Status& s) override {
-    if (this->status->ok()) *this->status = s;
+  void Corruption(size_t bytes, const Status& s) override {
+    if (this->status && this->status->ok()) *this->status = s;
   }
 };
 
@@ -484,8 +484,8 @@ Status CheckpointImpl::CreateCheckpointQuick(const std::string& checkpoint_dir,
   db_->EnableFileDeletions(false);
 
   if (s.ok()) {
-    // modify menifest file to set correct last_seq in VersionEdit, because
-    // the last_seq recorded in menifest may be greater than the real value
+    // modify manifest file to set correct last_seq in VersionEdit, because
+    // the last_seq recorded in manifest may be greater than the real value
     assert(!manifest_file_path.empty());
     s = ModifyManifestFileLastSeq(db_->GetEnv(), db_->GetOptions(),
                                   manifest_file_path, last_sequence);
