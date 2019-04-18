@@ -366,7 +366,7 @@ Status VersionEdit::DecodeFrom(const Slice& src) {
         if (GetVarint32(&input, &pegasus_data_version_)) {
           has_pegasus_data_version_ = true;
         } else {
-          msg = "value schema version";
+          msg = "Pegasus data version";
         }
         break;
 
