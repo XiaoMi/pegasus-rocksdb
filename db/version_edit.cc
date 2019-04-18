@@ -68,7 +68,7 @@ void VersionEdit::Clear() {
   last_flush_decree_ = 0;
   next_file_number_ = 0;
   max_column_family_ = 0;
-  value_schema_version_ = 0;
+  pegasus_data_version_ = 0;
   last_manual_compact_finish_time_ = 0;
   has_comparator_ = false;
   has_log_number_ = false;
@@ -77,7 +77,7 @@ void VersionEdit::Clear() {
   has_last_sequence_ = false;
   has_last_flush_seq_decree_ = false;
   has_max_column_family_ = false;
-  has_value_schema_version_ = false;
+  has_pegasus_data_version_ = false;
   has_last_manual_compact_finish_time_ = false;
   deleted_files_.clear();
   new_files_.clear();
@@ -112,9 +112,9 @@ bool VersionEdit::EncodeTo(std::string* dst) const {
   if (has_max_column_family_) {
     PutVarint32Varint32(dst, kMaxColumnFamily, max_column_family_);
   }
-  if (has_value_schema_version_) {
+  if (has_pegasus_data_version_) {
     PutVarint32(dst, kValueSchemaVersion);
-    PutVarint32(dst, value_schema_version_);
+    PutVarint32(dst, pegasus_data_version_);
   }
   if (has_last_manual_compact_finish_time_) {
     PutVarint32(dst, kLastManualCompactFinishTime);
@@ -363,10 +363,10 @@ Status VersionEdit::DecodeFrom(const Slice& src) {
         break;
 
       case kValueSchemaVersion:
-        if (GetVarint32(&input, &value_schema_version_)) {
-          has_value_schema_version_ = true;
+        if (GetVarint32(&input, &pegasus_data_version_)) {
+          has_pegasus_data_version_ = true;
         } else {
-          msg = "value schema version";
+          msg = "Pegasus data version";
         }
         break;
 
@@ -574,9 +574,9 @@ std::string VersionEdit::DebugString(bool hex_key) const {
     r.append("\n  MaxColumnFamily: ");
     AppendNumberTo(&r, max_column_family_);
   }
-  if (has_value_schema_version_) {
+  if (has_pegasus_data_version_) {
     r.append("\n  ValueSchemaVersion: ");
-    AppendNumberTo(&r, value_schema_version_);
+    AppendNumberTo(&r, pegasus_data_version_);
   }
   if (has_last_manual_compact_finish_time_) {
     r.append("\n  LastManualCompactFinishTime: ");
@@ -655,8 +655,8 @@ std::string VersionEdit::DebugJSON(int edit_num, bool hex_key) const {
   if (has_max_column_family_) {
     jw << "MaxColumnFamily" << max_column_family_;
   }
-  if (has_value_schema_version_) {
-    jw << "ValueSchemaVersion" << value_schema_version_;
+  if (has_pegasus_data_version_) {
+    jw << "PegasusDataVersion" << pegasus_data_version_;
   }
   if (has_last_manual_compact_finish_time_) {
     jw << "LastManualCompactFinishTime" << last_manual_compact_finish_time_;

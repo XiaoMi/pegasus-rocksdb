@@ -886,8 +886,8 @@ class DB {
   // The last flushed decree.
   virtual uint64_t GetLastFlushedDecree() { return 0; }
 
-  // The value schame version.
-  virtual uint32_t GetValueSchemaVersion() { return 0; }
+  // The Pegasus data version.
+  virtual uint32_t GetPegasusDataVersion() const { return 0; }
 
   virtual uint64_t GetLastManualCompactFinishTime() { return 0; }
 

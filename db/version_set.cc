@@ -2595,9 +2595,9 @@ Status VersionSet::LogAndApply(ColumnFamilyData* column_family_data,
       w.edit_list.front()->SetMaxColumnFamily(
           column_family_set_->GetMaxColumnFamily());
     }
-    // also we need to persist value schema version
-    w.edit_list.front()->SetValueSchemaVersion(
-        column_family_set_->GetValueSchemaVersion());
+    // also we need to persist Pegasus data version
+    w.edit_list.front()->SetPegasusDataVersion(
+        column_family_set_->GetPegasusDataVersion());
   }
 
   // Unlock during expensive operations. New writes cannot get here
@@ -2898,14 +2898,14 @@ Status VersionSet::Recover(
   bool have_prev_log_number = false;
   bool have_next_file = false;
   bool have_last_sequence = false;
-  bool have_value_schema_version = false;
+  bool have_pegasus_data_version = false;
   bool have_last_manual_compact_finish_time = false;
   uint64_t next_file = 0;
   uint64_t last_sequence = 0;
   uint64_t log_number = 0;
   uint64_t previous_log_number = 0;
   uint32_t max_column_family = 0;
-  uint32_t value_schema_version = 0;
+  uint32_t pegasus_data_version = 0;
   uint64_t last_manual_compact_finish_time = 0;
   std::unordered_map<uint32_t, BaseReferencedVersionBuilder*> builders;
   std::unordered_map<uint32_t, std::pair<uint64_t, uint64_t>> last_flush_seq_decree_map;
@@ -3048,9 +3048,9 @@ Status VersionSet::Recover(
         max_column_family = edit.max_column_family_;
       }
 
-      if (edit.has_value_schema_version_) {
-        value_schema_version = edit.value_schema_version_;
-        have_value_schema_version = true;
+      if (edit.has_pegasus_data_version_) {
+        pegasus_data_version = edit.pegasus_data_version_;
+        have_pegasus_data_version = true;
       }
 
       if (edit.has_last_manual_compact_finish_time_) {
@@ -3081,9 +3081,9 @@ Status VersionSet::Recover(
       s = Status::Corruption("no meta-lognumber entry in descriptor");
     } else if (!have_last_sequence) {
       s = Status::Corruption("no last-sequence-number entry in descriptor");
-    } else if (!have_value_schema_version) {
+    } else if (!have_pegasus_data_version) {
       if (db_options_->pegasus_data) {
-        s = Status::Corruption("no value_schema_version entry in descriptor");
+        s = Status::Corruption("no pegasus-data-version entry in descriptor");
       }
     } else if (!have_last_manual_compact_finish_time) {
       ROCKS_LOG_WARN(db_options_->info_log,
@@ -3095,7 +3095,7 @@ Status VersionSet::Recover(
     }
 
     column_family_set_->UpdateMaxColumnFamily(max_column_family);
-    column_family_set_->SetValueSchemaVersion(value_schema_version);
+    column_family_set_->SetPegasusDataVersion(pegasus_data_version);
     column_family_set_->SetLastManualCompactFinishTime(last_manual_compact_finish_time);
 
     MarkFileNumberUsed(previous_log_number);
@@ -3175,13 +3175,13 @@ Status VersionSet::Recover(
         "last_sequence is %lu, log_number is %lu,"
         "prev_log_number is %lu,"
         "max_column_family is %u,"
-        "value_schema_version is %u,"
+        "pegasus_data_version is %u,"
         "last_manual_compact_finish_time is %lu\n",
         manifest_filename.c_str(), (unsigned long)manifest_file_number_,
         (unsigned long)next_file_number_.load(), (unsigned long)last_sequence_,
         (unsigned long)log_number, (unsigned long)prev_log_number_,
         column_family_set_->GetMaxColumnFamily(),
-        column_family_set_->GetValueSchemaVersion(),
+        column_family_set_->GetPegasusDataVersion(),
         column_family_set_->GetLastManualCompactFinishTime());
 
     if (db_options_->pegasus_data) {
@@ -3508,8 +3508,8 @@ Status VersionSet::DumpManifest(Options& options, std::string& dscname,
         column_family_set_->UpdateMaxColumnFamily(edit.max_column_family_);
       }
 
-      if (edit.has_value_schema_version_) {
-        column_family_set_->SetValueSchemaVersion(edit.value_schema_version_);
+      if (edit.has_pegasus_data_version_) {
+        column_family_set_->SetPegasusDataVersion(edit.pegasus_data_version_);
       }
 
       if (edit.has_last_manual_compact_finish_time_) {
@@ -3582,11 +3582,11 @@ Status VersionSet::DumpManifest(Options& options, std::string& dscname,
     auto& p = last_flush_seq_decree_map[0]; // default column family
     printf(
         "next_file_number %lu last_sequence %lu last_flush_sequence %lu "
-        "last_flush_decree %lu prev_log_number %lu max_column_family %u value_schema_version %u "
+        "last_flush_decree %lu prev_log_number %lu max_column_family %u pegasus_data_version %u "
         "last_manual_compact_finish_time %lu\n",
         (unsigned long)next_file_number_.load(), (unsigned long)last_sequence,
         (unsigned long)p.first, (unsigned long)p.second, (unsigned long)previous_log_number,
-        column_family_set_->GetMaxColumnFamily(), column_family_set_->GetValueSchemaVersion(),
+        column_family_set_->GetMaxColumnFamily(), column_family_set_->GetPegasusDataVersion(),
         column_family_set_->GetLastManualCompactFinishTime());
   }
 
