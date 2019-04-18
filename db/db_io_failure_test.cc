@@ -333,21 +333,21 @@ TEST_F(DBIOFailureTest, CompactSstRangeSyncError) {
       RandomString(&rnd, static_cast<int>(options.bytes_per_sync / 2));
   std::string rnd_str_512kb = RandomString(&rnd, 512 * 1024);
 
-  ASSERT_OK(Put("foo", "bar"));
+  ASSERT_OK(Put(1, "foo", "bar"));
   // First 1MB doesn't get range synced
-  ASSERT_OK(Put("foo0_0", rnd_str_512kb));
-  ASSERT_OK(Put("foo0_1", rnd_str_512kb));
-  ASSERT_OK(Put("foo1_1", rnd_str));
-  ASSERT_OK(Put("foo1_2", rnd_str));
-  ASSERT_OK(Put("foo1_3", rnd_str));
-  Flush(0);
-  ASSERT_OK(Put("foo", "bar"));
-  ASSERT_OK(Put("foo3_1", rnd_str));
-  ASSERT_OK(Put("foo3_2", rnd_str));
-  ASSERT_OK(Put("foo3_3", rnd_str));
-  ASSERT_OK(Put("foo4", "bar"));
-  Flush(0);
-  dbfull()->TEST_WaitForFlushMemTable(handles_[0]);
+  ASSERT_OK(Put(1, "foo0_0", rnd_str_512kb));
+  ASSERT_OK(Put(1, "foo0_1", rnd_str_512kb));
+  ASSERT_OK(Put(1, "foo1_1", rnd_str));
+  ASSERT_OK(Put(1, "foo1_2", rnd_str));
+  ASSERT_OK(Put(1, "foo1_3", rnd_str));
+  Flush(1);
+  ASSERT_OK(Put(1, "foo", "bar"));
+  ASSERT_OK(Put(1, "foo3_1", rnd_str));
+  ASSERT_OK(Put(1, "foo3_2", rnd_str));
+  ASSERT_OK(Put(1, "foo3_3", rnd_str));
+  ASSERT_OK(Put(1, "foo4", "bar"));
+  Flush(1);
+  dbfull()->TEST_WaitForFlushMemTable(handles_[1]);
 
   std::atomic<int> range_sync_called(0);
   rocksdb::SyncPoint::GetInstance()->SetCallBack(
@@ -359,21 +359,21 @@ TEST_F(DBIOFailureTest, CompactSstRangeSyncError) {
       });
   rocksdb::SyncPoint::GetInstance()->EnableProcessing();
 
-  ASSERT_OK(dbfull()->SetOptions(handles_[0],
+  ASSERT_OK(dbfull()->SetOptions(handles_[1],
                                  {
                                      {"disable_auto_compactions", "false"},
                                  }));
   dbfull()->TEST_WaitForCompact();
 
   // Following writes should fail as flush failed.
-  ASSERT_NOK(Put("foo2", "bar3"));
-  ASSERT_EQ("bar", Get("foo"));
+  ASSERT_NOK(Put(1, "foo2", "bar3"));
+  ASSERT_EQ("bar", Get(1, "foo"));
 
   rocksdb::SyncPoint::GetInstance()->DisableProcessing();
   ASSERT_GE(1, range_sync_called.load());
 
   ReopenWithColumnFamilies({"default", "pikachu"}, options);
-  ASSERT_EQ("bar", Get("foo"));
+  ASSERT_EQ("bar", Get(1, "foo"));
 }
 
 TEST_F(DBIOFailureTest, FlushSstCloseError) {
@@ -429,15 +429,15 @@ TEST_F(DBIOFailureTest, CompactionSstCloseError) {
   CreateAndReopenWithCF({"pikachu"}, options);
   Status s;
 
-  ASSERT_OK(Put("foo", "bar"));
-  ASSERT_OK(Put("foo2", "bar"));
-  Flush(0);
-  ASSERT_OK(Put("foo", "bar2"));
-  ASSERT_OK(Put("foo2", "bar"));
-  Flush(0);
-  ASSERT_OK(Put("foo", "bar3"));
-  ASSERT_OK(Put("foo2", "bar"));
-  Flush(0);
+  ASSERT_OK(Put(1, "foo", "bar"));
+  ASSERT_OK(Put(1, "foo2", "bar"));
+  Flush(1);
+  ASSERT_OK(Put(1, "foo", "bar2"));
+  ASSERT_OK(Put(1, "foo2", "bar"));
+  Flush(1);
+  ASSERT_OK(Put(1, "foo", "bar3"));
+  ASSERT_OK(Put(1, "foo2", "bar"));
+  Flush(1);
   dbfull()->TEST_WaitForCompact();
 
   std::atomic<int> close_called(0);
@@ -450,20 +450,20 @@ TEST_F(DBIOFailureTest, CompactionSstCloseError) {
       });
 
   rocksdb::SyncPoint::GetInstance()->EnableProcessing();
-  ASSERT_OK(dbfull()->SetOptions(handles_[0],
+  ASSERT_OK(dbfull()->SetOptions(handles_[1],
                                  {
                                      {"disable_auto_compactions", "false"},
                                  }));
   dbfull()->TEST_WaitForCompact();
 
   // Following writes should fail as compaction failed.
-  ASSERT_NOK(Put("foo2", "bar3"));
-  ASSERT_EQ("bar3", Get("foo"));
+  ASSERT_NOK(Put(1, "foo2", "bar3"));
+  ASSERT_EQ("bar3", Get(1, "foo"));
 
   rocksdb::SyncPoint::GetInstance()->DisableProcessing();
 
   ReopenWithColumnFamilies({"default", "pikachu"}, options);
-  ASSERT_EQ("bar3", Get("foo"));
+  ASSERT_EQ("bar3", Get(1, "foo"));
 }
 
 TEST_F(DBIOFailureTest, FlushSstSyncError) {
@@ -521,15 +521,15 @@ TEST_F(DBIOFailureTest, CompactionSstSyncError) {
   CreateAndReopenWithCF({"pikachu"}, options);
   Status s;
 
-  ASSERT_OK(Put("foo", "bar"));
-  ASSERT_OK(Put("foo2", "bar"));
-  Flush();
-  ASSERT_OK(Put("foo", "bar2"));
-  ASSERT_OK(Put("foo2", "bar"));
-  Flush();
-  ASSERT_OK(Put("foo", "bar3"));
-  ASSERT_OK(Put("foo2", "bar"));
-  Flush();
+  ASSERT_OK(Put(1, "foo", "bar"));
+  ASSERT_OK(Put(1, "foo2", "bar"));
+  Flush(1);
+  ASSERT_OK(Put(1, "foo", "bar2"));
+  ASSERT_OK(Put(1, "foo2", "bar"));
+  Flush(1);
+  ASSERT_OK(Put(1, "foo", "bar3"));
+  ASSERT_OK(Put(1, "foo2", "bar"));
+  Flush(1);
   dbfull()->TEST_WaitForCompact();
 
   std::atomic<int> sync_called(0);
@@ -542,20 +542,20 @@ TEST_F(DBIOFailureTest, CompactionSstSyncError) {
       });
 
   rocksdb::SyncPoint::GetInstance()->EnableProcessing();
-  ASSERT_OK(dbfull()->SetOptions(handles_[0],
+  ASSERT_OK(dbfull()->SetOptions(handles_[1],
                                  {
                                      {"disable_auto_compactions", "false"},
                                  }));
   dbfull()->TEST_WaitForCompact();
 
   // Following writes should fail as compaction failed.
-  ASSERT_NOK(Put("foo2", "bar3"));
-  ASSERT_EQ("bar3", Get("foo"));
+  ASSERT_NOK(Put(1, "foo2", "bar3"));
+  ASSERT_EQ("bar3", Get(1, "foo"));
 
   rocksdb::SyncPoint::GetInstance()->DisableProcessing();
 
   ReopenWithColumnFamilies({"default", "pikachu"}, options);
-  ASSERT_EQ("bar3", Get("foo"));
+  ASSERT_EQ("bar3", Get(1, "foo"));
 }
 #endif  // !(defined NDEBUG) || !defined(OS_WIN)
 #endif  // ROCKSDB_LITE

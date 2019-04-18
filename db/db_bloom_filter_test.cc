@@ -61,61 +61,60 @@ TEST_P(DBBloomFilterTestWithParam, KeyMayExist) {
       continue;
     }
     options.statistics = rocksdb::CreateDBStatistics();
-    Reopen(options);
+    CreateAndReopenWithCF({"pikachu"}, options);
 
-    ASSERT_TRUE(!db_->KeyMayExist(ropts, "a", &value));
+    ASSERT_TRUE(!db_->KeyMayExist(ropts, handles_[1], "a", &value));
 
-    ASSERT_OK(Put("a", "b"));
+    ASSERT_OK(Put(1, "a", "b"));
     bool value_found = false;
     ASSERT_TRUE(
-        db_->KeyMayExist(ropts, "a", &value, &value_found));
+        db_->KeyMayExist(ropts, handles_[1], "a", &value, &value_found));
     ASSERT_TRUE(value_found);
     ASSERT_EQ("b", value);
 
-    ASSERT_OK(Flush(0));
+    ASSERT_OK(Flush(1));
     value.clear();
 
     uint64_t numopen = TestGetTickerCount(options, NO_FILE_OPENS);
     uint64_t cache_added = TestGetTickerCount(options, BLOCK_CACHE_ADD);
     ASSERT_TRUE(
-        db_->KeyMayExist(ropts, "a", &value, &value_found));
+        db_->KeyMayExist(ropts, handles_[1], "a", &value, &value_found));
     ASSERT_TRUE(!value_found);
     // assert that no new files were opened and no new blocks were
     // read into block cache.
     ASSERT_EQ(numopen, TestGetTickerCount(options, NO_FILE_OPENS));
     ASSERT_EQ(cache_added, TestGetTickerCount(options, BLOCK_CACHE_ADD));
 
-    ASSERT_OK(Delete("a"));
+    ASSERT_OK(Delete(1, "a"));
 
     numopen = TestGetTickerCount(options, NO_FILE_OPENS);
     cache_added = TestGetTickerCount(options, BLOCK_CACHE_ADD);
-    ASSERT_TRUE(!db_->KeyMayExist(ropts, "a", &value));
+    ASSERT_TRUE(!db_->KeyMayExist(ropts, handles_[1], "a", &value));
     ASSERT_EQ(numopen, TestGetTickerCount(options, NO_FILE_OPENS));
     ASSERT_EQ(cache_added, TestGetTickerCount(options, BLOCK_CACHE_ADD));
 
-    ASSERT_OK(Flush(0));
-    dbfull()->TEST_CompactRange(0, nullptr, nullptr, nullptr,
+    ASSERT_OK(Flush(1));
+    dbfull()->TEST_CompactRange(0, nullptr, nullptr, handles_[1],
                                 true /* disallow trivial move */);
 
     numopen = TestGetTickerCount(options, NO_FILE_OPENS);
     cache_added = TestGetTickerCount(options, BLOCK_CACHE_ADD);
-    ASSERT_TRUE(!db_->KeyMayExist(ropts, "a", &value));
+    ASSERT_TRUE(!db_->KeyMayExist(ropts, handles_[1], "a", &value));
     ASSERT_EQ(numopen, TestGetTickerCount(options, NO_FILE_OPENS));
     ASSERT_EQ(cache_added, TestGetTickerCount(options, BLOCK_CACHE_ADD));
 
-    ASSERT_OK(Delete("c"));
+    ASSERT_OK(Delete(1, "c"));
 
     numopen = TestGetTickerCount(options, NO_FILE_OPENS);
     cache_added = TestGetTickerCount(options, BLOCK_CACHE_ADD);
-    ASSERT_TRUE(!db_->KeyMayExist(ropts, "c", &value));
+    ASSERT_TRUE(!db_->KeyMayExist(ropts, handles_[1], "c", &value));
     ASSERT_EQ(numopen, TestGetTickerCount(options, NO_FILE_OPENS));
     ASSERT_EQ(cache_added, TestGetTickerCount(options, BLOCK_CACHE_ADD));
 
     // KeyMayExist function only checks data in block caches, which is not used
     // by plain table format.
   } while (
-      ChangeOptions(kSkipPlainTable | kSkipHashIndex | kSkipFIFOCompaction |
-                    kSkipPipelinedWrite));
+      ChangeOptions(kSkipPlainTable | kSkipHashIndex | kSkipFIFOCompaction));
 }
 
 TEST_F(DBBloomFilterTest, GetFilterByPrefixBloom) {
@@ -338,18 +337,18 @@ TEST_P(DBBloomFilterTestWithParam, BloomFilter) {
     table_options.metadata_block_size = 32;
     options.table_factory.reset(NewBlockBasedTableFactory(table_options));
 
-    Reopen(options);
+    CreateAndReopenWithCF({"pikachu"}, options);
 
     // Populate multiple layers
     const int N = 10000;
     for (int i = 0; i < N; i++) {
-      ASSERT_OK(Put(Key(i), Key(i)));
+      ASSERT_OK(Put(1, Key(i), Key(i)));
     }
-    Compact("a", "z");
+    Compact(1, "a", "z");
     for (int i = 0; i < N; i += 100) {
-      ASSERT_OK(Put(Key(i), Key(i)));
+      ASSERT_OK(Put(1, Key(i), Key(i)));
     }
-    Flush(0);
+    Flush(1);
 
     // Prevent auto compactions triggered by seeks
     env_->delay_sstable_sync_.store(true, std::memory_order_release);
@@ -357,7 +356,7 @@ TEST_P(DBBloomFilterTestWithParam, BloomFilter) {
     // Lookup present keys.  Should rarely read from small sstable.
     env_->random_read_counter_.Reset();
     for (int i = 0; i < N; i++) {
-      ASSERT_EQ(Key(i), Get(Key(i)));
+      ASSERT_EQ(Key(i), Get(1, Key(i)));
     }
     int reads = env_->random_read_counter_.Read();
     fprintf(stderr, "%d present => %d reads\n", N, reads);
@@ -373,7 +372,7 @@ TEST_P(DBBloomFilterTestWithParam, BloomFilter) {
     // Lookup present keys.  Should rarely read from either sstable.
     env_->random_read_counter_.Reset();
     for (int i = 0; i < N; i++) {
-      ASSERT_EQ("NOT_FOUND", Get(Key(i) + ".missing"));
+      ASSERT_EQ("NOT_FOUND", Get(1, Key(i) + ".missing"));
     }
     reads = env_->random_read_counter_.Read();
     fprintf(stderr, "%d missing => %d reads\n", N, reads);
@@ -399,25 +398,25 @@ TEST_F(DBBloomFilterTest, BloomFilterRate) {
   while (ChangeFilterOptions()) {
     Options options = CurrentOptions();
     options.statistics = rocksdb::CreateDBStatistics();
-    Reopen(options);
+    CreateAndReopenWithCF({"pikachu"}, options);
 
     const int maxKey = 10000;
     for (int i = 0; i < maxKey; i++) {
-      ASSERT_OK(Put(Key(i), Key(i)));
+      ASSERT_OK(Put(1, Key(i), Key(i)));
     }
     // Add a large key to make the file contain wide range
-    ASSERT_OK(Put(Key(maxKey + 55555), Key(maxKey + 55555)));
-    Flush(0);
+    ASSERT_OK(Put(1, Key(maxKey + 55555), Key(maxKey + 55555)));
+    Flush(1);
 
     // Check if they can be found
     for (int i = 0; i < maxKey; i++) {
-      ASSERT_EQ(Key(i), Get(Key(i)));
+      ASSERT_EQ(Key(i), Get(1, Key(i)));
     }
     ASSERT_EQ(TestGetTickerCount(options, BLOOM_FILTER_USEFUL), 0);
 
     // Check if filter is useful
     for (int i = 0; i < maxKey; i++) {
-      ASSERT_EQ("NOT_FOUND", Get(Key(i + 33333)));
+      ASSERT_EQ("NOT_FOUND", Get(1, Key(i + 33333)));
     }
     ASSERT_GE(TestGetTickerCount(options, BLOOM_FILTER_USEFUL), maxKey * 0.98);
   }
@@ -431,23 +430,23 @@ TEST_F(DBBloomFilterTest, BloomFilterCompatibility) {
   options.table_factory.reset(NewBlockBasedTableFactory(table_options));
 
   // Create with block based filter
-  Reopen(options);
+  CreateAndReopenWithCF({"pikachu"}, options);
 
   const int maxKey = 10000;
   for (int i = 0; i < maxKey; i++) {
-    ASSERT_OK(Put(Key(i), Key(i)));
+    ASSERT_OK(Put(1, Key(i), Key(i)));
   }
-  ASSERT_OK(Put(Key(maxKey + 55555), Key(maxKey + 55555)));
-  Flush(0);
+  ASSERT_OK(Put(1, Key(maxKey + 55555), Key(maxKey + 55555)));
+  Flush(1);
 
   // Check db with full filter
   table_options.filter_policy.reset(NewBloomFilterPolicy(10, false));
   options.table_factory.reset(NewBlockBasedTableFactory(table_options));
-  Reopen(options);
+  ReopenWithColumnFamilies({"default", "pikachu"}, options);
 
   // Check if they can be found
   for (int i = 0; i < maxKey; i++) {
-    ASSERT_EQ(Key(i), Get(Key(i)));
+    ASSERT_EQ(Key(i), Get(1, Key(i)));
   }
   ASSERT_EQ(TestGetTickerCount(options, BLOOM_FILTER_USEFUL), 0);
 
@@ -457,11 +456,11 @@ TEST_F(DBBloomFilterTest, BloomFilterCompatibility) {
       BlockBasedTableOptions::IndexType::kTwoLevelIndexSearch;
   table_options.filter_policy.reset(NewBloomFilterPolicy(10, false));
   options.table_factory.reset(NewBlockBasedTableFactory(table_options));
-  Reopen(options);
+  ReopenWithColumnFamilies({"default", "pikachu"}, options);
 
   // Check if they can be found
   for (int i = 0; i < maxKey; i++) {
-    ASSERT_EQ(Key(i), Get(Key(i)));
+    ASSERT_EQ(Key(i), Get(1, Key(i)));
   }
   ASSERT_EQ(TestGetTickerCount(options, BLOOM_FILTER_USEFUL), 0);
 }
@@ -481,23 +480,23 @@ TEST_F(DBBloomFilterTest, BloomFilterReverseCompatibility) {
     DestroyAndReopen(options);
 
     // Create with full filter
-    Reopen(options);
+    CreateAndReopenWithCF({"pikachu"}, options);
 
     const int maxKey = 10000;
     for (int i = 0; i < maxKey; i++) {
-      ASSERT_OK(Put(Key(i), Key(i)));
+      ASSERT_OK(Put(1, Key(i), Key(i)));
     }
-    ASSERT_OK(Put(Key(maxKey + 55555), Key(maxKey + 55555)));
-    Flush(0);
+    ASSERT_OK(Put(1, Key(maxKey + 55555), Key(maxKey + 55555)));
+    Flush(1);
 
     // Check db with block_based filter
     table_options.filter_policy.reset(NewBloomFilterPolicy(10, true));
     options.table_factory.reset(NewBlockBasedTableFactory(table_options));
-    Reopen(options);
+    ReopenWithColumnFamilies({"default", "pikachu"}, options);
 
     // Check if they can be found
     for (int i = 0; i < maxKey; i++) {
-      ASSERT_EQ(Key(i), Get(Key(i)));
+      ASSERT_EQ(Key(i), Get(1, Key(i)));
     }
     ASSERT_EQ(TestGetTickerCount(options, BLOOM_FILTER_USEFUL), 0);
   }
@@ -548,27 +547,27 @@ TEST_F(DBBloomFilterTest, BloomFilterWrapper) {
   table_options.filter_policy.reset(policy);
   options.table_factory.reset(NewBlockBasedTableFactory(table_options));
 
-  Reopen(options);
+  CreateAndReopenWithCF({"pikachu"}, options);
 
   const int maxKey = 10000;
   for (int i = 0; i < maxKey; i++) {
-    ASSERT_OK(Put(Key(i), Key(i)));
+    ASSERT_OK(Put(1, Key(i), Key(i)));
   }
   // Add a large key to make the file contain wide range
-  ASSERT_OK(Put(Key(maxKey + 55555), Key(maxKey + 55555)));
+  ASSERT_OK(Put(1, Key(maxKey + 55555), Key(maxKey + 55555)));
   ASSERT_EQ(0U, policy->GetCounter());
-  Flush(0);
+  Flush(1);
 
   // Check if they can be found
   for (int i = 0; i < maxKey; i++) {
-    ASSERT_EQ(Key(i), Get(Key(i)));
+    ASSERT_EQ(Key(i), Get(1, Key(i)));
   }
   ASSERT_EQ(TestGetTickerCount(options, BLOOM_FILTER_USEFUL), 0);
   ASSERT_EQ(1U * maxKey, policy->GetCounter());
 
   // Check if filter is useful
   for (int i = 0; i < maxKey; i++) {
-    ASSERT_EQ("NOT_FOUND", Get(Key(i + 33333)));
+    ASSERT_EQ("NOT_FOUND", Get(1, Key(i + 33333)));
   }
   ASSERT_GE(TestGetTickerCount(options, BLOOM_FILTER_USEFUL), maxKey * 0.98);
   ASSERT_EQ(2U * maxKey, policy->GetCounter());
@@ -941,7 +940,7 @@ TEST_F(DBBloomFilterTest, OptimizeFiltersForHits) {
   options.table_factory.reset(NewBlockBasedTableFactory(bbto));
   options.optimize_filters_for_hits = true;
   options.statistics = rocksdb::CreateDBStatistics();
-  Reopen(options);
+  CreateAndReopenWithCF({"mypikachu"}, options);
 
   int numkeys = 200000;
 
@@ -956,27 +955,27 @@ TEST_F(DBBloomFilterTest, OptimizeFiltersForHits) {
 
   int num_inserted = 0;
   for (int key : keys) {
-    ASSERT_OK(Put(Key(key), "val"));
+    ASSERT_OK(Put(1, Key(key), "val"));
     if (++num_inserted % 1000 == 0) {
       dbfull()->TEST_WaitForFlushMemTable();
       dbfull()->TEST_WaitForCompact();
     }
   }
-  ASSERT_OK(Put(Key(0), "val"));
-  ASSERT_OK(Put(Key(numkeys), "val"));
-  ASSERT_OK(Flush(0));
+  ASSERT_OK(Put(1, Key(0), "val"));
+  ASSERT_OK(Put(1, Key(numkeys), "val"));
+  ASSERT_OK(Flush(1));
   dbfull()->TEST_WaitForCompact();
 
-  if (NumTableFilesAtLevel(0, 0) == 0) {
+  if (NumTableFilesAtLevel(0, 1) == 0) {
     // No Level 0 file. Create one.
-    ASSERT_OK(Put(Key(0), "val"));
-    ASSERT_OK(Put(Key(numkeys), "val"));
-    ASSERT_OK(Flush(0));
+    ASSERT_OK(Put(1, Key(0), "val"));
+    ASSERT_OK(Put(1, Key(numkeys), "val"));
+    ASSERT_OK(Flush(1));
     dbfull()->TEST_WaitForCompact();
   }
 
   for (int i = 1; i < numkeys; i += 2) {
-    ASSERT_EQ(Get(Key(i)), "NOT_FOUND");
+    ASSERT_EQ(Get(1, Key(i)), "NOT_FOUND");
   }
 
   ASSERT_EQ(0, TestGetTickerCount(options, GET_HIT_L0));
@@ -989,7 +988,7 @@ TEST_F(DBBloomFilterTest, OptimizeFiltersForHits) {
   ASSERT_LT(TestGetTickerCount(options, BLOOM_FILTER_USEFUL), 120000 * 2);
 
   for (int i = 0; i < numkeys; i += 2) {
-    ASSERT_EQ(Get(Key(i)), "val");
+    ASSERT_EQ(Get(1, Key(i)), "val");
   }
 
   // Part 2 (read path): rewrite last level with blooms, then verify they get
@@ -1001,13 +1000,13 @@ TEST_F(DBBloomFilterTest, OptimizeFiltersForHits) {
   bbto.block_cache.reset();
   options.table_factory.reset(NewBlockBasedTableFactory(bbto));
 
-  Reopen(options);
-  MoveFilesToLevel(7 /* level */, 0 /* column family index */);
+  ReopenWithColumnFamilies({"default", "mypikachu"}, options);
+  MoveFilesToLevel(7 /* level */, 1 /* column family index */);
 
-  std::string value = Get(Key(0));
+  std::string value = Get(1, Key(0));
   uint64_t prev_cache_filter_hits =
       TestGetTickerCount(options, BLOCK_CACHE_FILTER_HIT);
-  value = Get(Key(0));
+  value = Get(1, Key(0));
   ASSERT_EQ(prev_cache_filter_hits + 1,
             TestGetTickerCount(options, BLOCK_CACHE_FILTER_HIT));
 
@@ -1018,9 +1017,9 @@ TEST_F(DBBloomFilterTest, OptimizeFiltersForHits) {
   bbto.block_cache.reset();
   options.table_factory.reset(NewBlockBasedTableFactory(bbto));
 
-  Reopen(options);
+  ReopenWithColumnFamilies({"default", "mypikachu"}, options);
 
-  value = Get(Key(0));
+  value = Get(1, Key(0));
   ASSERT_EQ(0, TestGetTickerCount(options, BLOCK_CACHE_FILTER_MISS));
   ASSERT_EQ(0, TestGetTickerCount(options, BLOCK_CACHE_FILTER_HIT));
   ASSERT_EQ(2 /* index and data block */,
@@ -1032,12 +1031,12 @@ TEST_F(DBBloomFilterTest, OptimizeFiltersForHits) {
   bbto.block_cache.reset();
   options.table_factory.reset(NewBlockBasedTableFactory(bbto));
 
-  Reopen(options);
+  ReopenWithColumnFamilies({"default", "mypikachu"}, options);
 
   uint64_t prev_cache_filter_misses =
       TestGetTickerCount(options, BLOCK_CACHE_FILTER_MISS);
   prev_cache_filter_hits = TestGetTickerCount(options, BLOCK_CACHE_FILTER_HIT);
-  Get(Key(0));
+  Get(1, Key(0));
   ASSERT_EQ(prev_cache_filter_misses,
             TestGetTickerCount(options, BLOCK_CACHE_FILTER_MISS));
   ASSERT_EQ(prev_cache_filter_hits,
@@ -1049,10 +1048,10 @@ TEST_F(DBBloomFilterTest, OptimizeFiltersForHits) {
   options.statistics = CreateDBStatistics();
   options.table_factory.reset(NewBlockBasedTableFactory(bbto));
 
-  Reopen(options);
+  ReopenWithColumnFamilies({"default", "mypikachu"}, options);
 
-  ASSERT_OK(Put(Key(numkeys + 1), "val"));
-  ASSERT_OK(Flush(0));
+  ASSERT_OK(Put(1, Key(numkeys + 1), "val"));
+  ASSERT_OK(Flush(1));
 
   int32_t trivial_move = 0;
   int32_t non_trivial_move = 0;
@@ -1069,7 +1068,7 @@ TEST_F(DBBloomFilterTest, OptimizeFiltersForHits) {
       BottommostLevelCompaction::kSkip;
   compact_options.change_level = true;
   compact_options.target_level = 7;
-  db_->CompactRange(compact_options, nullptr, nullptr);
+  db_->CompactRange(compact_options, handles_[1], nullptr, nullptr);
 
   ASSERT_EQ(trivial_move, 1);
   ASSERT_EQ(non_trivial_move, 0);
@@ -1077,7 +1076,7 @@ TEST_F(DBBloomFilterTest, OptimizeFiltersForHits) {
   prev_cache_filter_hits = TestGetTickerCount(options, BLOCK_CACHE_FILTER_HIT);
   prev_cache_filter_misses =
       TestGetTickerCount(options, BLOCK_CACHE_FILTER_MISS);
-  value = Get(Key(numkeys + 1));
+  value = Get(1, Key(numkeys + 1));
   ASSERT_EQ(prev_cache_filter_hits,
             TestGetTickerCount(options, BLOCK_CACHE_FILTER_HIT));
   ASSERT_EQ(prev_cache_filter_misses,
@@ -1088,9 +1087,9 @@ TEST_F(DBBloomFilterTest, OptimizeFiltersForHits) {
   options.statistics = CreateDBStatistics();
   options.table_factory.reset(NewBlockBasedTableFactory(bbto));
 
-  Reopen(options);
+  ReopenWithColumnFamilies({"default", "mypikachu"}, options);
 
-  std::unique_ptr<Iterator> iter(db_->NewIterator(ReadOptions()));
+  std::unique_ptr<Iterator> iter(db_->NewIterator(ReadOptions(), handles_[1]));
   iter->SeekToFirst();
   ASSERT_EQ(0, TestGetTickerCount(options, BLOCK_CACHE_FILTER_MISS));
   ASSERT_EQ(0, TestGetTickerCount(options, BLOCK_CACHE_FILTER_HIT));

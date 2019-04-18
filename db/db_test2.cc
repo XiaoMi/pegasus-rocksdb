@@ -479,7 +479,7 @@ namespace {
 
 }  // namespace
 
-TEST_F(DBTest2, DISABLED_WalFilterTest) {
+TEST_F(DBTest2, WalFilterTest) {
   class TestWalFilter : public WalFilter {
   private:
     // Processing option that is requested to be applied at the given index
@@ -654,7 +654,7 @@ TEST_F(DBTest2, DISABLED_WalFilterTest) {
   }
 }
 
-TEST_F(DBTest2, DISABLED_WalFilterTestWithChangeBatch) {
+TEST_F(DBTest2, WalFilterTestWithChangeBatch) {
   class ChangeBatchHandler : public WriteBatch::Handler {
   private:
     // Batch to insert keys in
@@ -1316,22 +1316,20 @@ class PinL0IndexAndFilterBlocksTest : public DBTestBase,
     options->table_factory.reset(new BlockBasedTableFactory(table_options));
     CreateAndReopenWithCF({"pikachu"}, *options);
 
-    WriteOptions wop;
-    wop.disableWAL = false;
-    Put("a", "begin", wop);
-    Put("z", "end", wop);
-    ASSERT_OK(Flush());
+    Put(1, "a", "begin");
+    Put(1, "z", "end");
+    ASSERT_OK(Flush(1));
     // move this table to L1
-    dbfull()->TEST_CompactRange(0, nullptr, nullptr, handles_[0]);
+    dbfull()->TEST_CompactRange(0, nullptr, nullptr, handles_[1]);
 
     // reset block cache
     table_options.block_cache = NewLRUCache(64 * 1024);
     options->table_factory.reset(NewBlockBasedTableFactory(table_options));
     TryReopenWithColumnFamilies({"default", "pikachu"}, *options);
     // create new table at L0
-    Put("a2", "begin2", wop);
-    Put("z2", "end2", wop);
-    ASSERT_OK(Flush());
+    Put(1, "a2", "begin2");
+    Put(1, "z2", "end2");
+    ASSERT_OK(Flush(1));
 
     if (close_afterwards) {
       Close();  // This ensures that there is no ref to block cache entries
@@ -1400,7 +1398,7 @@ TEST_P(PinL0IndexAndFilterBlocksTest,
   std::string value;
   // this should be read from L0
   // so cache values don't change
-  value = Get("a2");
+  value = Get(1, "a2");
   ASSERT_EQ(fm, TestGetTickerCount(options, BLOCK_CACHE_FILTER_MISS));
   ASSERT_EQ(fh, TestGetTickerCount(options, BLOCK_CACHE_FILTER_HIT));
   ASSERT_EQ(im, TestGetTickerCount(options, BLOCK_CACHE_INDEX_MISS));
@@ -1412,7 +1410,7 @@ TEST_P(PinL0IndexAndFilterBlocksTest,
   // then the get results in a cache hit for L1
   // When we have inifinite max_files, there is still cache miss because we have
   // reset the block cache
-  value = Get("a");
+  value = Get(1, "a");
   ASSERT_EQ(fm + 1, TestGetTickerCount(options, BLOCK_CACHE_FILTER_MISS));
   ASSERT_EQ(im + 1, TestGetTickerCount(options, BLOCK_CACHE_INDEX_MISS));
 }
@@ -1452,7 +1450,7 @@ TEST_P(PinL0IndexAndFilterBlocksTest, DisablePrefetchingNonL0IndexAndFilter) {
   }
   std::string value;
   // this should be read from L0
-  value = Get("a2");
+  value = Get(1, "a2");
   // If max_open_files is -1, we have pinned index and filter in Rep, so there
   // will not be changes in index and filter misses or hits. If max_open_files
   // is not -1, Get() will open a TableReader and prefetch index and filter.
@@ -1462,7 +1460,7 @@ TEST_P(PinL0IndexAndFilterBlocksTest, DisablePrefetchingNonL0IndexAndFilter) {
   ASSERT_EQ(ih, TestGetTickerCount(options, BLOCK_CACHE_INDEX_HIT));
 
   // this should be read from L1
-  value = Get("a");
+  value = Get(1, "a");
   if (infinite_max_files_) {
     // In inifinite max files case, there's a cache miss in executing Get()
     // because index and filter are not prefetched before.

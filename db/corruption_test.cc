@@ -105,9 +105,7 @@ class CorruptionTest : public testing::Test {
       Slice key = Key(i, &key_space);
       batch.Clear();
       batch.Put(key, Value(i, &value_space));
-      WriteOptions wop;
-      wop.disableWAL = true;
-      ASSERT_OK(db_->Write(wop, &batch));
+      ASSERT_OK(db_->Write(WriteOptions(), &batch));
     }
   }
 
@@ -257,7 +255,7 @@ class CorruptionTest : public testing::Test {
   }
 };
 
-TEST_F(CorruptionTest, DISABLED_Recovery) {             // PEGASUS: pegasus does not use wal, ignore this case
+TEST_F(CorruptionTest, Recovery) {
   Build(100);
   Check(100, 100);
 #ifdef OS_WIN
@@ -341,14 +339,14 @@ TEST_F(CorruptionTest, TableFileIndexData) {
   ASSERT_NOK(dbi->VerifyChecksum());
 }
 
-TEST_F(CorruptionTest, DISABLED_MissingDescriptor) {    // PEGASUS: last_flush_sequence is lost when repair
+TEST_F(CorruptionTest, MissingDescriptor) {
   Build(1000);
   RepairDB();
   Reopen();
   Check(1000, 1000);
 }
 
-TEST_F(CorruptionTest, DISABLED_SequenceNumberRecovery) {     // PEGASUS: last_flush_sequence is lost when repair
+TEST_F(CorruptionTest, SequenceNumberRecovery) {
   ASSERT_OK(db_->Put(WriteOptions(), "foo", "v1"));
   ASSERT_OK(db_->Put(WriteOptions(), "foo", "v2"));
   ASSERT_OK(db_->Put(WriteOptions(), "foo", "v3"));
@@ -369,7 +367,7 @@ TEST_F(CorruptionTest, DISABLED_SequenceNumberRecovery) {     // PEGASUS: last_f
   ASSERT_EQ("v6", v);
 }
 
-TEST_F(CorruptionTest, DISABLED_CorruptedDescriptor) {        // PEGASUS: last_flush_sequence is lost when repair
+TEST_F(CorruptionTest, CorruptedDescriptor) {
   ASSERT_OK(db_->Put(WriteOptions(), "foo", "hello"));
   DBImpl* dbi = reinterpret_cast<DBImpl*>(db_);
   dbi->TEST_FlushMemTable();

@@ -175,9 +175,9 @@ TEST_F(DBMemTableTest, ColumnFamilyId) {
   options.create_if_missing = true;
   options.memtable_factory.reset(new MockMemTableRepFactory());
   DestroyAndReopen(options);
-  //CreateAndReopenWithCF({"pikachu"}, options);
+  CreateAndReopenWithCF({"pikachu"}, options);
 
-  for (int cf = 0; cf < 1; ++cf) {
+  for (int cf = 0; cf < 2; ++cf) {
     ASSERT_OK(Put(cf, "key", "val"));
     ASSERT_OK(Flush(cf));
     ASSERT_EQ(

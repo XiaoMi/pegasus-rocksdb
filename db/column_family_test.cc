@@ -740,7 +740,7 @@ TEST_F(ColumnFamilyTest, BulkAddDrop) {
   ASSERT_TRUE(families == std::vector<std::string>({"default"}));
 }
 
-TEST_F(ColumnFamilyTest, DISABLED_DropTest) {
+TEST_F(ColumnFamilyTest, DropTest) {
   // first iteration - dont reopen DB before dropping
   // second iteration - reopen DB before dropping
   for (int iter = 0; iter < 2; ++iter) {
@@ -764,7 +764,7 @@ TEST_F(ColumnFamilyTest, DISABLED_DropTest) {
   }
 }
 
-TEST_F(ColumnFamilyTest, DISABLED_WriteBatchFailure) {
+TEST_F(ColumnFamilyTest, WriteBatchFailure) {
   Open();
   CreateColumnFamiliesAndReopen({"one", "two"});
   WriteBatch batch;
@@ -782,7 +782,7 @@ TEST_F(ColumnFamilyTest, DISABLED_WriteBatchFailure) {
   Close();
 }
 
-TEST_F(ColumnFamilyTest, DISABLED_ReadWrite) {
+TEST_F(ColumnFamilyTest, ReadWrite) {
   Open();
   CreateColumnFamiliesAndReopen({"one", "two"});
   ASSERT_OK(Put(0, "foo", "v1"));
@@ -806,7 +806,7 @@ TEST_F(ColumnFamilyTest, DISABLED_ReadWrite) {
   Close();
 }
 
-TEST_F(ColumnFamilyTest, DISABLED_IgnoreRecoveredLog) {
+TEST_F(ColumnFamilyTest, IgnoreRecoveredLog) {
   std::string backup_logs = dbname_ + "/backup_logs";
 
   // delete old files in backup_logs directory
@@ -884,12 +884,12 @@ TEST_F(ColumnFamilyTest, DISABLED_IgnoreRecoveredLog) {
 #ifndef ROCKSDB_LITE  // TEST functions used are not supported
 TEST_F(ColumnFamilyTest, FlushTest) {
   Open();
-//  CreateColumnFamiliesAndReopen({"one", "two"});
+  CreateColumnFamiliesAndReopen({"one", "two"});
   ASSERT_OK(Put(0, "foo", "v1"));
   ASSERT_OK(Put(0, "bar", "v2"));
-//  ASSERT_OK(Put(1, "mirko", "v3"));
+  ASSERT_OK(Put(1, "mirko", "v3"));
   ASSERT_OK(Put(0, "foo", "v2"));
-//  ASSERT_OK(Put(2, "fodor", "v5"));
+  ASSERT_OK(Put(2, "fodor", "v5"));
 
   for (int j = 0; j < 2; j++) {
     ReadOptions ro;
@@ -899,13 +899,13 @@ TEST_F(ColumnFamilyTest, FlushTest) {
       ASSERT_OK(db_->NewIterators(ro, handles_, &iterators));
     }
 
-    for (int i = 0; i < 1; ++i) {
+    for (int i = 0; i < 3; ++i) {
       uint64_t max_total_in_memory_state =
           MaxTotalInMemoryState();
       Flush(i);
       AssertMaxTotalInMemoryState(max_total_in_memory_state);
     }
-//    ASSERT_OK(Put(1, "foofoo", "bar"));
+    ASSERT_OK(Put(1, "foofoo", "bar"));
     ASSERT_OK(Put(0, "foofoo", "bar"));
 
     for (auto* it : iterators) {
@@ -917,11 +917,11 @@ TEST_F(ColumnFamilyTest, FlushTest) {
   for (int iter = 0; iter <= 2; ++iter) {
     ASSERT_EQ("v2", Get(0, "foo"));
     ASSERT_EQ("v2", Get(0, "bar"));
-//    ASSERT_EQ("v3", Get(1, "mirko"));
-//    ASSERT_EQ("v5", Get(2, "fodor"));
+    ASSERT_EQ("v3", Get(1, "mirko"));
+    ASSERT_EQ("v5", Get(2, "fodor"));
     ASSERT_EQ("NOT_FOUND", Get(0, "fodor"));
-//    ASSERT_EQ("NOT_FOUND", Get(1, "fodor"));
-//    ASSERT_EQ("NOT_FOUND", Get(2, "foo"));
+    ASSERT_EQ("NOT_FOUND", Get(1, "fodor"));
+    ASSERT_EQ("NOT_FOUND", Get(2, "foo"));
     if (iter <= 1) {
       Reopen();
     }
@@ -930,7 +930,7 @@ TEST_F(ColumnFamilyTest, FlushTest) {
 }
 
 // Makes sure that obsolete log files get deleted
-TEST_F(ColumnFamilyTest, DISABLED_LogDeletionTest) {
+TEST_F(ColumnFamilyTest, LogDeletionTest) {
   db_options_.max_total_wal_size = std::numeric_limits<uint64_t>::max();
   column_family_options_.arena_block_size = 4 * 1024;
   column_family_options_.write_buffer_size = 128000;  // 128KB
@@ -998,7 +998,7 @@ TEST_F(ColumnFamilyTest, DISABLED_LogDeletionTest) {
 }
 #endif  // !ROCKSDB_LITE
 
-TEST_F(ColumnFamilyTest, DISABLED_CrashAfterFlush) {
+TEST_F(ColumnFamilyTest, CrashAfterFlush) {
   std::unique_ptr<FaultInjectionTestEnv> fault_env(
       new FaultInjectionTestEnv(env_));
   db_options_.env = fault_env.get();
@@ -1038,7 +1038,7 @@ TEST_F(ColumnFamilyTest, OpenNonexistentColumnFamily) {
 
 #ifndef ROCKSDB_LITE  // WaitForFlush() is not supported
 // Makes sure that obsolete log files get deleted
-TEST_F(ColumnFamilyTest, DISABLED_DifferentWriteBufferSizes) {
+TEST_F(ColumnFamilyTest, DifferentWriteBufferSizes) {
   // disable flushing stale column families
   db_options_.max_total_wal_size = std::numeric_limits<uint64_t>::max();
   Open();
@@ -1200,7 +1200,7 @@ TEST_F(ColumnFamilyTest, GetComparator) {
   Close();
 }
 
-TEST_F(ColumnFamilyTest, DISABLED_DifferentMergeOperators) {
+TEST_F(ColumnFamilyTest, DifferentMergeOperators) {
   Open();
   CreateColumnFamilies({"first", "second"});
   ColumnFamilyOptions default_cf, first, second;
@@ -1231,7 +1231,7 @@ TEST_F(ColumnFamilyTest, DISABLED_DifferentMergeOperators) {
 }
 
 #ifndef ROCKSDB_LITE  // WaitForFlush() is not supported
-TEST_F(ColumnFamilyTest, DISABLED_DifferentCompactionStyles) {
+TEST_F(ColumnFamilyTest, DifferentCompactionStyles) {
   Open();
   CreateColumnFamilies({"one", "two"});
   ColumnFamilyOptions default_cf, one, two;
@@ -1303,7 +1303,7 @@ TEST_F(ColumnFamilyTest, DISABLED_DifferentCompactionStyles) {
 #ifndef ROCKSDB_LITE
 // Sync points not supported in RocksDB Lite
 
-TEST_F(ColumnFamilyTest, DISABLED_MultipleManualCompactions) {
+TEST_F(ColumnFamilyTest, MultipleManualCompactions) {
   Open();
   CreateColumnFamilies({"one", "two"});
   ColumnFamilyOptions default_cf, one, two;
@@ -1400,7 +1400,7 @@ TEST_F(ColumnFamilyTest, DISABLED_MultipleManualCompactions) {
   Close();
 }
 
-TEST_F(ColumnFamilyTest, DISABLED_AutomaticAndManualCompactions) {
+TEST_F(ColumnFamilyTest, AutomaticAndManualCompactions) {
   Open();
   CreateColumnFamilies({"one", "two"});
   ColumnFamilyOptions default_cf, one, two;
@@ -1493,7 +1493,7 @@ TEST_F(ColumnFamilyTest, DISABLED_AutomaticAndManualCompactions) {
   }
 }
 
-TEST_F(ColumnFamilyTest, DISABLED_ManualAndAutomaticCompactions) {
+TEST_F(ColumnFamilyTest, ManualAndAutomaticCompactions) {
   Open();
   CreateColumnFamilies({"one", "two"});
   ColumnFamilyOptions default_cf, one, two;
@@ -1589,7 +1589,7 @@ TEST_F(ColumnFamilyTest, DISABLED_ManualAndAutomaticCompactions) {
   }
 }
 
-TEST_F(ColumnFamilyTest, DISABLED_SameCFManualManualCompactions) {
+TEST_F(ColumnFamilyTest, SameCFManualManualCompactions) {
   Open();
   CreateColumnFamilies({"one"});
   ColumnFamilyOptions default_cf, one;
@@ -1688,7 +1688,7 @@ TEST_F(ColumnFamilyTest, DISABLED_SameCFManualManualCompactions) {
   }
 }
 
-TEST_F(ColumnFamilyTest, DISABLED_SameCFManualAutomaticCompactions) {
+TEST_F(ColumnFamilyTest, SameCFManualAutomaticCompactions) {
   Open();
   CreateColumnFamilies({"one"});
   ColumnFamilyOptions default_cf, one;
@@ -1778,7 +1778,7 @@ TEST_F(ColumnFamilyTest, DISABLED_SameCFManualAutomaticCompactions) {
   }
 }
 
-TEST_F(ColumnFamilyTest, DISABLED_SameCFManualAutomaticCompactionsLevel) {
+TEST_F(ColumnFamilyTest, SameCFManualAutomaticCompactionsLevel) {
   Open();
   CreateColumnFamilies({"one"});
   ColumnFamilyOptions default_cf, one;
@@ -1875,7 +1875,7 @@ TEST_F(ColumnFamilyTest, DISABLED_SameCFManualAutomaticCompactionsLevel) {
 // This will wait because there is an unscheduled manual compaction.
 // Once the conflict is hit, the manual compaction starts and ends
 // Then another automatic will start and end.
-TEST_F(ColumnFamilyTest, DISABLED_SameCFManualAutomaticConflict) {
+TEST_F(ColumnFamilyTest, SameCFManualAutomaticConflict) {
   Open();
   CreateColumnFamilies({"one"});
   ColumnFamilyOptions default_cf, one;
@@ -1994,7 +1994,7 @@ TEST_F(ColumnFamilyTest, DISABLED_SameCFManualAutomaticConflict) {
 // This will wait because the automatic compaction has files it needs.
 // Once the conflict is hit, the automatic compaction starts and ends
 // Then the manual will run and end.
-TEST_F(ColumnFamilyTest, DISABLED_SameCFAutomaticManualCompactions) {
+TEST_F(ColumnFamilyTest, SameCFAutomaticManualCompactions) {
   Open();
   CreateColumnFamilies({"one"});
   ColumnFamilyOptions default_cf, one;
@@ -2091,7 +2091,7 @@ std::string IterStatus(Iterator* iter) {
 }
 }  // anonymous namespace
 
-TEST_F(ColumnFamilyTest, DISABLED_NewIteratorsTest) {
+TEST_F(ColumnFamilyTest, NewIteratorsTest) {
   // iter == 0 -- no tailing
   // iter == 2 -- tailing
   for (int iter = 0; iter < 2; ++iter) {
@@ -2138,7 +2138,7 @@ TEST_F(ColumnFamilyTest, DISABLED_NewIteratorsTest) {
 #endif  // !ROCKSDB_LITE
 
 #ifndef ROCKSDB_LITE  // ReadOnlyDB is not supported
-TEST_F(ColumnFamilyTest, DISABLED_ReadOnlyDBTest) {
+TEST_F(ColumnFamilyTest, ReadOnlyDBTest) {
   Open();
   CreateColumnFamiliesAndReopen({"one", "two", "three", "four"});
   ASSERT_OK(Put(0, "a", "b"));
@@ -2190,7 +2190,7 @@ TEST_F(ColumnFamilyTest, DISABLED_ReadOnlyDBTest) {
 #endif  // !ROCKSDB_LITE
 
 #ifndef ROCKSDB_LITE  //  WaitForFlush() is not supported in lite
-TEST_F(ColumnFamilyTest, DISABLED_DontRollEmptyLogs) {
+TEST_F(ColumnFamilyTest, DontRollEmptyLogs) {
   Open();
   CreateColumnFamiliesAndReopen({"one", "two", "three", "four"});
 
@@ -2214,7 +2214,7 @@ TEST_F(ColumnFamilyTest, DISABLED_DontRollEmptyLogs) {
 #endif  // !ROCKSDB_LITE
 
 #ifndef ROCKSDB_LITE  //  WaitForCompaction() is not supported in lite
-TEST_F(ColumnFamilyTest, DISABLED_FlushStaleColumnFamilies) {
+TEST_F(ColumnFamilyTest, FlushStaleColumnFamilies) {
   Open();
   CreateColumnFamilies({"one", "two"});
   ColumnFamilyOptions default_cf, one, two;
@@ -2249,7 +2249,7 @@ TEST_F(ColumnFamilyTest, DISABLED_FlushStaleColumnFamilies) {
 }
 #endif  // !ROCKSDB_LITE
 
-TEST_F(ColumnFamilyTest, DISABLED_CreateMissingColumnFamilies) {
+TEST_F(ColumnFamilyTest, CreateMissingColumnFamilies) {
   Status s = TryOpen({"one", "two"});
   ASSERT_TRUE(!s.ok());
   db_options_.create_missing_column_families = true;
@@ -2307,7 +2307,7 @@ TEST_F(ColumnFamilyTest, SanitizeOptions) {
   }
 }
 
-TEST_F(ColumnFamilyTest, DISABLED_ReadDroppedColumnFamily) {
+TEST_F(ColumnFamilyTest, ReadDroppedColumnFamily) {
   // iter 0 -- drop CF, don't reopen
   // iter 1 -- delete CF, reopen
   for (int iter = 0; iter < 2; ++iter) {
@@ -2379,7 +2379,7 @@ TEST_F(ColumnFamilyTest, DISABLED_ReadDroppedColumnFamily) {
   }
 }
 
-TEST_F(ColumnFamilyTest, DISABLED_FlushAndDropRaceCondition) {
+TEST_F(ColumnFamilyTest, FlushAndDropRaceCondition) {
   db_options_.create_missing_column_families = true;
   Open({"default", "one"});
   ColumnFamilyOptions options;
@@ -2911,7 +2911,7 @@ TEST_F(ColumnFamilyTest, CompactionSpeedupTwoColumnFamilies) {
 }
 
 #ifndef ROCKSDB_LITE
-TEST_F(ColumnFamilyTest, DISABLED_FlushCloseWALFiles) {
+TEST_F(ColumnFamilyTest, FlushCloseWALFiles) {
   SpecialEnv env(Env::Default());
   db_options_.env = &env;
   db_options_.max_background_flushes = 1;
@@ -2953,7 +2953,7 @@ TEST_F(ColumnFamilyTest, DISABLED_FlushCloseWALFiles) {
 #endif  // !ROCKSDB_LITE
 
 #ifndef ROCKSDB_LITE  // WaitForFlush() is not supported
-TEST_F(ColumnFamilyTest, DISABLED_IteratorCloseWALFile1) {
+TEST_F(ColumnFamilyTest, IteratorCloseWALFile1) {
   SpecialEnv env(Env::Default());
   db_options_.env = &env;
   db_options_.max_background_flushes = 1;
@@ -2998,7 +2998,7 @@ TEST_F(ColumnFamilyTest, DISABLED_IteratorCloseWALFile1) {
   Close();
 }
 
-TEST_F(ColumnFamilyTest, DISABLED_IteratorCloseWALFile2) {
+TEST_F(ColumnFamilyTest, IteratorCloseWALFile2) {
   SpecialEnv env(Env::Default());
   // Allow both of flush and purge job to schedule.
   env.SetBackgroundThreads(2, Env::HIGH);
@@ -3055,7 +3055,7 @@ TEST_F(ColumnFamilyTest, DISABLED_IteratorCloseWALFile2) {
 #endif  // !ROCKSDB_LITE
 
 #ifndef ROCKSDB_LITE  // TEST functions are not supported in lite
-TEST_F(ColumnFamilyTest, DISABLED_ForwardIteratorCloseWALFile) {
+TEST_F(ColumnFamilyTest, ForwardIteratorCloseWALFile) {
   SpecialEnv env(Env::Default());
   // Allow both of flush and purge job to schedule.
   env.SetBackgroundThreads(2, Env::HIGH);
@@ -3132,7 +3132,7 @@ TEST_F(ColumnFamilyTest, DISABLED_ForwardIteratorCloseWALFile) {
 // Disable on windows because SyncWAL requires env->IsSyncThreadSafe()
 // to return true which is not so in unbuffered mode.
 #ifndef OS_WIN
-TEST_F(ColumnFamilyTest, DISABLED_LogSyncConflictFlush) {
+TEST_F(ColumnFamilyTest, LogSyncConflictFlush) {
   Open();
   CreateColumnFamiliesAndReopen({"one", "two"});
 
