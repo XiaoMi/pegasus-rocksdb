@@ -286,6 +286,7 @@ TEST_F(OptionsSettableTest, DBOptionsAllFieldsSettable) {
                              "concurrent_prepare=false;"
                              "manual_wal_flush=false;"
                              "seq_per_batch=false;"
+                             "pegasus_data=false;"
                              "default_value_schema_version=0;",
                              new_options));
 

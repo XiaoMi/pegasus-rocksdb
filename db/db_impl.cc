@@ -195,6 +195,7 @@ DBImpl::DBImpl(const DBOptions& options, const std::string& dbname)
       concurrent_prepare_(options.concurrent_prepare),
       manual_wal_flush_(options.manual_wal_flush),
       seq_per_batch_(options.seq_per_batch),
+      pegasus_data_(options.pegasus_data),
       // TODO(myabandeh): revise this when we change options.seq_per_batch
       use_custom_gc_(options.seq_per_batch),
       preserve_deletes_(options.preserve_deletes) {
@@ -756,7 +757,7 @@ uint64_t DBImpl::GetLastFlushedDecree() {
 
   mutex_.Lock();
   // ATTENTION(qinzuoyan): only use default column family.
-  assert(versions_->GetColumnFamilySet()->NumberOfColumnFamilies() == 1u);
+  assert(!pegasus_data_ || versions_->GetColumnFamilySet()->NumberOfColumnFamilies() == 1u);
   versions_->GetColumnFamilySet()->GetDefault()->current()->GetLastFlushSeqDecree(&seq, &d);
   mutex_.Unlock();
 

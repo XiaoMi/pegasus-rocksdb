@@ -922,6 +922,10 @@ struct DBOptions {
   // projects.
   bool seq_per_batch = false;
 
+  // Whether the data is for Pegasus.
+  // Default: false
+  bool pegasus_data = false;
+
   // Default value schema version.
   // Default: 0
   uint32_t default_value_schema_version = 0;
