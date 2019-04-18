@@ -25,18 +25,18 @@ TEST_F(DBTestInPlaceUpdate, InPlaceUpdate) {
     options.write_buffer_size = 100000;
     options.allow_concurrent_memtable_write = false;
     Reopen(options);
-    //CreateAndReopenWithCF({"pikachu"}, options);
+    CreateAndReopenWithCF({"pikachu"}, options);
 
     // Update key with values of smaller size
     int numValues = 10;
     for (int i = numValues; i > 0; i--) {
       std::string value = DummyString(i, 'a');
-      ASSERT_OK(Put("key", value));
-      ASSERT_EQ(value, Get("key"));
+      ASSERT_OK(Put(1, "key", value));
+      ASSERT_EQ(value, Get(1, "key"));
     }
 
     // Only 1 instance for that key.
-    validateNumberOfEntries(1, 0);
+    validateNumberOfEntries(1, 1);
   } while (ChangeCompactOptions());
 }
 
@@ -49,18 +49,18 @@ TEST_F(DBTestInPlaceUpdate, InPlaceUpdateLargeNewValue) {
     options.write_buffer_size = 100000;
     options.allow_concurrent_memtable_write = false;
     Reopen(options);
-    //CreateAndReopenWithCF({"pikachu"}, options);
+    CreateAndReopenWithCF({"pikachu"}, options);
 
     // Update key with values of larger size
     int numValues = 10;
     for (int i = 0; i < numValues; i++) {
       std::string value = DummyString(i, 'a');
-      ASSERT_OK(Put("key", value));
-      ASSERT_EQ(value, Get("key"));
+      ASSERT_OK(Put(1, "key", value));
+      ASSERT_EQ(value, Get(1, "key"));
     }
 
     // All 10 updates exist in the internal iterator
-    validateNumberOfEntries(numValues, 0);
+    validateNumberOfEntries(numValues, 1);
   } while (ChangeCompactOptions());
 }
 
@@ -76,20 +76,20 @@ TEST_F(DBTestInPlaceUpdate, InPlaceUpdateCallbackSmallerSize) {
       rocksdb::DBTestInPlaceUpdate::updateInPlaceSmallerSize;
     options.allow_concurrent_memtable_write = false;
     Reopen(options);
-    //CreateAndReopenWithCF({"pikachu"}, options);
+    CreateAndReopenWithCF({"pikachu"}, options);
 
     // Update key with values of smaller size
     int numValues = 10;
-    ASSERT_OK(Put("key", DummyString(numValues, 'a')));
-    ASSERT_EQ(DummyString(numValues, 'c'), Get("key"));
+    ASSERT_OK(Put(1, "key", DummyString(numValues, 'a')));
+    ASSERT_EQ(DummyString(numValues, 'c'), Get(1, "key"));
 
     for (int i = numValues; i > 0; i--) {
-      ASSERT_OK(Put("key", DummyString(i, 'a')));
-      ASSERT_EQ(DummyString(i - 1, 'b'), Get("key"));
+      ASSERT_OK(Put(1, "key", DummyString(i, 'a')));
+      ASSERT_EQ(DummyString(i - 1, 'b'), Get(1, "key"));
     }
 
     // Only 1 instance for that key.
-    validateNumberOfEntries(1, 0);
+    validateNumberOfEntries(1, 1);
   } while (ChangeCompactOptions());
 }
 
@@ -105,20 +105,20 @@ TEST_F(DBTestInPlaceUpdate, InPlaceUpdateCallbackSmallerVarintSize) {
       rocksdb::DBTestInPlaceUpdate::updateInPlaceSmallerVarintSize;
     options.allow_concurrent_memtable_write = false;
     Reopen(options);
-    //CreateAndReopenWithCF({"pikachu"}, options);
+    CreateAndReopenWithCF({"pikachu"}, options);
 
     // Update key with values of smaller varint size
     int numValues = 265;
-    ASSERT_OK(Put("key", DummyString(numValues, 'a')));
-    ASSERT_EQ(DummyString(numValues, 'c'), Get("key"));
+    ASSERT_OK(Put(1, "key", DummyString(numValues, 'a')));
+    ASSERT_EQ(DummyString(numValues, 'c'), Get(1, "key"));
 
     for (int i = numValues; i > 0; i--) {
-      ASSERT_OK(Put("key", DummyString(i, 'a')));
-      ASSERT_EQ(DummyString(1, 'b'), Get("key"));
+      ASSERT_OK(Put(1, "key", DummyString(i, 'a')));
+      ASSERT_EQ(DummyString(1, 'b'), Get(1, "key"));
     }
 
     // Only 1 instance for that key.
-    validateNumberOfEntries(1, 0);
+    validateNumberOfEntries(1, 1);
   } while (ChangeCompactOptions());
 }
 
@@ -134,18 +134,18 @@ TEST_F(DBTestInPlaceUpdate, InPlaceUpdateCallbackLargeNewValue) {
       rocksdb::DBTestInPlaceUpdate::updateInPlaceLargerSize;
     options.allow_concurrent_memtable_write = false;
     Reopen(options);
-    //CreateAndReopenWithCF({"pikachu"}, options);
+    CreateAndReopenWithCF({"pikachu"}, options);
 
     // Update key with values of larger size
     int numValues = 10;
     for (int i = 0; i < numValues; i++) {
-      ASSERT_OK(Put("key", DummyString(i, 'a')));
-      ASSERT_EQ(DummyString(i, 'c'), Get("key"));
+      ASSERT_OK(Put(1, "key", DummyString(i, 'a')));
+      ASSERT_EQ(DummyString(i, 'c'), Get(1, "key"));
     }
 
     // No inplace updates. All updates are puts with new seq number
     // All 10 updates exist in the internal iterator
-    validateNumberOfEntries(numValues, 0);
+    validateNumberOfEntries(numValues, 1);
   } while (ChangeCompactOptions());
 }
 
@@ -161,11 +161,11 @@ TEST_F(DBTestInPlaceUpdate, InPlaceUpdateCallbackNoAction) {
         rocksdb::DBTestInPlaceUpdate::updateInPlaceNoAction;
     options.allow_concurrent_memtable_write = false;
     Reopen(options);
-    //CreateAndReopenWithCF({"pikachu"}, options);
+    CreateAndReopenWithCF({"pikachu"}, options);
 
     // Callback function requests no actions from db
-    ASSERT_OK(Put("key", DummyString(1, 'a')));
-    ASSERT_EQ(Get("key"), "NOT_FOUND");
+    ASSERT_OK(Put(1, "key", DummyString(1, 'a')));
+    ASSERT_EQ(Get(1, "key"), "NOT_FOUND");
   } while (ChangeCompactOptions());
 }
 }  // namespace rocksdb

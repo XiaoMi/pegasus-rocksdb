@@ -15,12 +15,12 @@
 #include "util/sync_point.h"
 
 namespace rocksdb {
-class DISABLED_DBWALTest : public DBTestBase {
+class DBWALTest : public DBTestBase {
  public:
-  DISABLED_DBWALTest() : DBTestBase("/db_wal_test") {}
+  DBWALTest() : DBTestBase("/db_wal_test") {}
 };
 
-TEST_F(DISABLED_DBWALTest, WAL) {
+TEST_F(DBWALTest, WAL) {
   do {
     CreateAndReopenWithCF({"pikachu"}, CurrentOptions());
     WriteOptions writeOpt = WriteOptions();
@@ -54,7 +54,7 @@ TEST_F(DISABLED_DBWALTest, WAL) {
   } while (ChangeWalOptions());
 }
 
-TEST_F(DISABLED_DBWALTest, RollLog) {
+TEST_F(DBWALTest, RollLog) {
   do {
     CreateAndReopenWithCF({"pikachu"}, CurrentOptions());
     ASSERT_OK(Put(1, "foo", "v1"));
@@ -71,7 +71,7 @@ TEST_F(DISABLED_DBWALTest, RollLog) {
   } while (ChangeWalOptions());
 }
 
-TEST_F(DISABLED_DBWALTest, SyncWALNotBlockWrite) {
+TEST_F(DBWALTest, SyncWALNotBlockWrite) {
   Options options = CurrentOptions();
   options.max_write_buffer_number = 4;
   DestroyAndReopen(options);
@@ -81,15 +81,15 @@ TEST_F(DISABLED_DBWALTest, SyncWALNotBlockWrite) {
 
   rocksdb::SyncPoint::GetInstance()->LoadDependency({
       {"WritableFileWriter::SyncWithoutFlush:1",
-       "DISABLED_DBWALTest::SyncWALNotBlockWrite:1"},
-      {"DISABLED_DBWALTest::SyncWALNotBlockWrite:2",
+       "DBWALTest::SyncWALNotBlockWrite:1"},
+      {"DBWALTest::SyncWALNotBlockWrite:2",
        "WritableFileWriter::SyncWithoutFlush:2"},
   });
   rocksdb::SyncPoint::GetInstance()->EnableProcessing();
 
   rocksdb::port::Thread thread([&]() { ASSERT_OK(db_->SyncWAL()); });
 
-  TEST_SYNC_POINT("DISABLED_DBWALTest::SyncWALNotBlockWrite:1");
+  TEST_SYNC_POINT("DBWALTest::SyncWALNotBlockWrite:1");
   ASSERT_OK(Put("foo2", "bar2"));
   ASSERT_OK(Put("foo3", "bar3"));
   FlushOptions fo;
@@ -97,7 +97,7 @@ TEST_F(DISABLED_DBWALTest, SyncWALNotBlockWrite) {
   ASSERT_OK(db_->Flush(fo));
   ASSERT_OK(Put("foo4", "bar4"));
 
-  TEST_SYNC_POINT("DISABLED_DBWALTest::SyncWALNotBlockWrite:2");
+  TEST_SYNC_POINT("DBWALTest::SyncWALNotBlockWrite:2");
 
   thread.join();
 
@@ -109,22 +109,22 @@ TEST_F(DISABLED_DBWALTest, SyncWALNotBlockWrite) {
   rocksdb::SyncPoint::GetInstance()->DisableProcessing();
 }
 
-TEST_F(DISABLED_DBWALTest, SyncWALNotWaitWrite) {
-  ASSERT_OK(Put("foo1", "bar1", WriteOptions(), false));
-  ASSERT_OK(Put("foo3", "bar3", WriteOptions(), false));
+TEST_F(DBWALTest, SyncWALNotWaitWrite) {
+  ASSERT_OK(Put("foo1", "bar1"));
+  ASSERT_OK(Put("foo3", "bar3"));
 
   rocksdb::SyncPoint::GetInstance()->LoadDependency({
-      {"SpecialEnv::WalFile::Append:1", "DISABLED_DBWALTest::SyncWALNotWaitWrite:1"},
-      {"DISABLED_DBWALTest::SyncWALNotWaitWrite:2", "SpecialEnv::WalFile::Append:2"},
+      {"SpecialEnv::WalFile::Append:1", "DBWALTest::SyncWALNotWaitWrite:1"},
+      {"DBWALTest::SyncWALNotWaitWrite:2", "SpecialEnv::WalFile::Append:2"},
   });
   rocksdb::SyncPoint::GetInstance()->EnableProcessing();
 
-  rocksdb::port::Thread thread([&]() { ASSERT_OK(Put("foo2", "bar2", WriteOptions(), false)); });
+  rocksdb::port::Thread thread([&]() { ASSERT_OK(Put("foo2", "bar2")); });
   // Moving this to SyncWAL before the actual fsync
-  // TEST_SYNC_POINT("DISABLED_DBWALTest::SyncWALNotWaitWrite:1");
+  // TEST_SYNC_POINT("DBWALTest::SyncWALNotWaitWrite:1");
   ASSERT_OK(db_->SyncWAL());
   // Moving this to SyncWAL after actual fsync
-  // TEST_SYNC_POINT("DISABLED_DBWALTest::SyncWALNotWaitWrite:2");
+  // TEST_SYNC_POINT("DBWALTest::SyncWALNotWaitWrite:2");
 
   thread.join();
 
@@ -133,7 +133,7 @@ TEST_F(DISABLED_DBWALTest, SyncWALNotWaitWrite) {
   rocksdb::SyncPoint::GetInstance()->DisableProcessing();
 }
 
-TEST_F(DISABLED_DBWALTest, Recover) {
+TEST_F(DBWALTest, Recover) {
   do {
     CreateAndReopenWithCF({"pikachu"}, CurrentOptions());
     ASSERT_OK(Put(1, "foo", "v1"));
@@ -156,7 +156,7 @@ TEST_F(DISABLED_DBWALTest, Recover) {
   } while (ChangeWalOptions());
 }
 
-TEST_F(DISABLED_DBWALTest, RecoverWithTableHandle) {
+TEST_F(DBWALTest, RecoverWithTableHandle) {
   do {
     Options options = CurrentOptions();
     options.create_if_missing = true;
@@ -193,7 +193,7 @@ TEST_F(DISABLED_DBWALTest, RecoverWithTableHandle) {
   } while (ChangeWalOptions());
 }
 
-TEST_F(DISABLED_DBWALTest, IgnoreRecoveredLog) {
+TEST_F(DBWALTest, IgnoreRecoveredLog) {
   std::string backup_logs = dbname_ + "/backup_logs";
 
   do {
@@ -282,7 +282,7 @@ TEST_F(DISABLED_DBWALTest, IgnoreRecoveredLog) {
   } while (ChangeWalOptions());
 }
 
-TEST_F(DISABLED_DBWALTest, RecoveryWithEmptyLog) {
+TEST_F(DBWALTest, RecoveryWithEmptyLog) {
   do {
     CreateAndReopenWithCF({"pikachu"}, CurrentOptions());
     ASSERT_OK(Put(1, "foo", "v1"));
@@ -296,7 +296,7 @@ TEST_F(DISABLED_DBWALTest, RecoveryWithEmptyLog) {
 }
 
 #if !(defined NDEBUG) || !defined(OS_WIN)
-TEST_F(DISABLED_DBWALTest, PreallocateBlock) {
+TEST_F(DBWALTest, PreallocateBlock) {
   Options options = CurrentOptions();
   options.write_buffer_size = 10 * 1000 * 1000;
   options.max_total_wal_size = 0;
@@ -385,7 +385,7 @@ TEST_F(DISABLED_DBWALTest, PreallocateBlock) {
 #endif  // !(defined NDEBUG) || !defined(OS_WIN)
 
 #ifndef ROCKSDB_LITE
-TEST_F(DISABLED_DBWALTest, FullPurgePreservesRecycledLog) {
+TEST_F(DBWALTest, FullPurgePreservesRecycledLog) {
   // For github issue #1303
   for (int i = 0; i < 2; ++i) {
     Options options = CurrentOptions();
@@ -421,7 +421,7 @@ TEST_F(DISABLED_DBWALTest, FullPurgePreservesRecycledLog) {
   }
 }
 
-TEST_F(DISABLED_DBWALTest, GetSortedWalFiles) {
+TEST_F(DBWALTest, GetSortedWalFiles) {
   do {
     CreateAndReopenWithCF({"pikachu"}, CurrentOptions());
     VectorLogPtr log_files;
@@ -434,7 +434,7 @@ TEST_F(DISABLED_DBWALTest, GetSortedWalFiles) {
   } while (ChangeWalOptions());
 }
 
-TEST_F(DISABLED_DBWALTest, RecoveryWithLogDataForSomeCFs) {
+TEST_F(DBWALTest, RecoveryWithLogDataForSomeCFs) {
   // Test for regression of WAL cleanup missing files that don't contain data
   // for every column family.
   do {
@@ -459,7 +459,7 @@ TEST_F(DISABLED_DBWALTest, RecoveryWithLogDataForSomeCFs) {
   } while (ChangeWalOptions());
 }
 
-TEST_F(DISABLED_DBWALTest, RecoverWithLargeLog) {
+TEST_F(DBWALTest, RecoverWithLargeLog) {
   do {
     {
       Options options = CurrentOptions();
@@ -491,7 +491,7 @@ TEST_F(DISABLED_DBWALTest, RecoverWithLargeLog) {
 // memtable was flushed, even it was empty. Now it's changed:
 // we try to create the smallest number of table files by merging
 // updates from multiple logs
-TEST_F(DISABLED_DBWALTest, RecoverCheckFileAmountWithSmallWriteBuffer) {
+TEST_F(DBWALTest, RecoverCheckFileAmountWithSmallWriteBuffer) {
   Options options = CurrentOptions();
   options.write_buffer_size = 5000000;
   CreateAndReopenWithCF({"pikachu", "dobrynia", "nikitich"}, options);
@@ -547,7 +547,7 @@ TEST_F(DISABLED_DBWALTest, RecoverCheckFileAmountWithSmallWriteBuffer) {
 // memtable was flushed, even it wasn't empty. Now it's changed:
 // we try to create the smallest number of table files by merging
 // updates from multiple logs
-TEST_F(DISABLED_DBWALTest, RecoverCheckFileAmount) {
+TEST_F(DBWALTest, RecoverCheckFileAmount) {
   Options options = CurrentOptions();
   options.write_buffer_size = 100000;
   options.arena_block_size = 4 * 1024;
@@ -613,7 +613,7 @@ TEST_F(DISABLED_DBWALTest, RecoverCheckFileAmount) {
   }
 }
 
-TEST_F(DISABLED_DBWALTest, SyncMultipleLogs) {
+TEST_F(DBWALTest, SyncMultipleLogs) {
   const uint64_t kNumBatches = 2;
   const int kBatchSize = 1000;
 
@@ -642,7 +642,7 @@ TEST_F(DISABLED_DBWALTest, SyncMultipleLogs) {
 // a local variable, then keep increase the variable as we replay logs,
 // ignoring actual sequence id of the records. This is incorrect if some writes
 // come with WAL disabled.
-TEST_F(DISABLED_DBWALTest, PartOfWritesWithWALDisabled) {
+TEST_F(DBWALTest, PartOfWritesWithWALDisabled) {
   std::unique_ptr<FaultInjectionTestEnv> fault_env(
       new FaultInjectionTestEnv(env_));
   Options options = CurrentOptions();
@@ -687,7 +687,7 @@ class RecoveryTestHelper {
   static const int kValueSize = 96;
 
   // Create WAL files with values filled in
-  static void FillData(DISABLED_DBWALTest* test, const Options& options,
+  static void FillData(DBWALTest* test, const Options& options,
                        const size_t wal_count, size_t* count) {
     const ImmutableDBOptions db_options(options);
 
@@ -737,7 +737,7 @@ class RecoveryTestHelper {
   }
 
   // Recreate and fill the store with some data
-  static size_t FillData(DISABLED_DBWALTest* test, Options* options) {
+  static size_t FillData(DBWALTest* test, Options* options) {
     options->create_if_missing = true;
     test->DestroyAndReopen(*options);
     test->Close();
@@ -748,7 +748,7 @@ class RecoveryTestHelper {
   }
 
   // Read back all the keys we wrote and return the number of keys found
-  static size_t GetData(DISABLED_DBWALTest* test) {
+  static size_t GetData(DBWALTest* test) {
     size_t count = 0;
     for (size_t i = 0; i < kWALFilesCount * kKeysPerWALFile; i++) {
       if (test->Get("key" + ToString(i)) != "NOT_FOUND") {
@@ -759,7 +759,7 @@ class RecoveryTestHelper {
   }
 
   // Manuall corrupt the specified WAL
-  static void CorruptWAL(DISABLED_DBWALTest* test, const Options& options,
+  static void CorruptWAL(DBWALTest* test, const Options& options,
                          const double off, const double len,
                          const int wal_file_id, const bool trunc = false) {
     Env* env = options.env;
@@ -808,7 +808,7 @@ class RecoveryTestHelper {
 // - We expect to open the data store when there is incomplete trailing writes
 // at the end of any of the logs
 // - We do not expect to open the data store for corruption
-TEST_F(DISABLED_DBWALTest, kTolerateCorruptedTailRecords) {
+TEST_F(DBWALTest, kTolerateCorruptedTailRecords) {
   const int jstart = RecoveryTestHelper::kWALFileOffset;
   const int jend = jstart + RecoveryTestHelper::kWALFilesCount;
 
@@ -843,7 +843,7 @@ TEST_F(DISABLED_DBWALTest, kTolerateCorruptedTailRecords) {
 // Test scope:
 // We don't expect the data store to be opened if there is any corruption
 // (leading, middle or trailing -- incomplete writes or corruption)
-TEST_F(DISABLED_DBWALTest, kAbsoluteConsistency) {
+TEST_F(DBWALTest, kAbsoluteConsistency) {
   const int jstart = RecoveryTestHelper::kWALFileOffset;
   const int jend = jstart + RecoveryTestHelper::kWALFilesCount;
 
@@ -879,7 +879,7 @@ TEST_F(DISABLED_DBWALTest, kAbsoluteConsistency) {
 // Test scope:
 // We don't expect the data store to be opened if there is any inconsistency
 // between WAL and SST files
-TEST_F(DISABLED_DBWALTest, kPointInTimeRecoveryCFConsistency) {
+TEST_F(DBWALTest, kPointInTimeRecoveryCFConsistency) {
   Options options = CurrentOptions();
   options.avoid_flush_during_recovery = true;
 
@@ -912,7 +912,7 @@ TEST_F(DISABLED_DBWALTest, kPointInTimeRecoveryCFConsistency) {
 // Test scope:
 // - We expect to open data store under all circumstances
 // - We expect only data upto the point where the first error was encountered
-TEST_F(DISABLED_DBWALTest, kPointInTimeRecovery) {
+TEST_F(DBWALTest, kPointInTimeRecovery) {
   const int jstart = RecoveryTestHelper::kWALFileOffset;
   const int jend = jstart + RecoveryTestHelper::kWALFilesCount;
   const int maxkeys =
@@ -963,7 +963,7 @@ TEST_F(DISABLED_DBWALTest, kPointInTimeRecovery) {
 // Test scope:
 // - We expect to open the data store under all scenarios
 // - We expect to have recovered records past the corruption zone
-TEST_F(DISABLED_DBWALTest, kSkipAnyCorruptedRecords) {
+TEST_F(DBWALTest, kSkipAnyCorruptedRecords) {
   const int jstart = RecoveryTestHelper::kWALFileOffset;
   const int jend = jstart + RecoveryTestHelper::kWALFilesCount;
 
@@ -995,7 +995,7 @@ TEST_F(DISABLED_DBWALTest, kSkipAnyCorruptedRecords) {
   }
 }
 
-TEST_F(DISABLED_DBWALTest, AvoidFlushDuringRecovery) {
+TEST_F(DBWALTest, AvoidFlushDuringRecovery) {
   Options options = CurrentOptions();
   options.disable_auto_compactions = true;
   options.avoid_flush_during_recovery = false;
@@ -1043,7 +1043,7 @@ TEST_F(DISABLED_DBWALTest, AvoidFlushDuringRecovery) {
   ASSERT_EQ(3, TotalTableFiles());
 }
 
-TEST_F(DISABLED_DBWALTest, WalCleanupAfterAvoidFlushDuringRecovery) {
+TEST_F(DBWALTest, WalCleanupAfterAvoidFlushDuringRecovery) {
   // Verifies WAL files that were present during recovery, but not flushed due
   // to avoid_flush_during_recovery, will be considered for deletion at a later
   // stage. We check at least one such file is deleted during Flush().
@@ -1069,7 +1069,7 @@ TEST_F(DISABLED_DBWALTest, WalCleanupAfterAvoidFlushDuringRecovery) {
   }
 }
 
-TEST_F(DISABLED_DBWALTest, RecoverWithoutFlush) {
+TEST_F(DBWALTest, RecoverWithoutFlush) {
   Options options = CurrentOptions();
   options.avoid_flush_during_recovery = true;
   options.create_if_missing = false;
@@ -1110,7 +1110,7 @@ TEST_F(DISABLED_DBWALTest, RecoverWithoutFlush) {
   ASSERT_EQ(Get("bar"), "bar_v3");
 }
 
-TEST_F(DISABLED_DBWALTest, RecoverWithoutFlushMultipleCF) {
+TEST_F(DBWALTest, RecoverWithoutFlushMultipleCF) {
   const std::string kSmallValue = "v";
   const std::string kLargeValue = DummyString(1024);
   Options options = CurrentOptions();
@@ -1170,7 +1170,7 @@ TEST_F(DISABLED_DBWALTest, RecoverWithoutFlushMultipleCF) {
 //   2. Open with avoid_flush_during_recovery = true;
 //   3. Append more data without flushing, which creates new WAL log.
 //   4. Open again. See if it can correctly handle previous corruption.
-TEST_F(DISABLED_DBWALTest, RecoverFromCorruptedWALWithoutFlush) {
+TEST_F(DBWALTest, RecoverFromCorruptedWALWithoutFlush) {
   const int jstart = RecoveryTestHelper::kWALFileOffset;
   const int jend = jstart + RecoveryTestHelper::kWALFilesCount;
   const int kAppendKeys = 100;
@@ -1230,7 +1230,7 @@ TEST_F(DISABLED_DBWALTest, RecoverFromCorruptedWALWithoutFlush) {
 
 #endif  // ROCKSDB_LITE
 
-TEST_F(DISABLED_DBWALTest, WalTermTest) {
+TEST_F(DBWALTest, WalTermTest) {
   Options options = CurrentOptions();
   options.env = env_;
   CreateAndReopenWithCF({"pikachu"}, options);

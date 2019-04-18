@@ -20,9 +20,9 @@
 namespace rocksdb {
 
 #ifndef ROCKSDB_LITE
-class DISABLED_RepairTest : public DBTestBase {
+class RepairTest : public DBTestBase {
  public:
-  DISABLED_RepairTest() : DBTestBase("/repair_test") {}
+  RepairTest() : DBTestBase("/repair_test") {}
 
   std::string GetFirstSstPath() {
     uint64_t manifest_size;
@@ -39,7 +39,7 @@ class DISABLED_RepairTest : public DBTestBase {
   }
 };
 
-TEST_F(DISABLED_RepairTest, LostManifest) {
+TEST_F(RepairTest, LostManifest) {
   // Add a couple SST files, delete the manifest, and verify RepairDB() saves
   // the day.
   Put("key", "val");
@@ -61,7 +61,7 @@ TEST_F(DISABLED_RepairTest, LostManifest) {
   ASSERT_EQ(Get("key2"), "val2");
 }
 
-TEST_F(DISABLED_RepairTest, CorruptManifest) {
+TEST_F(RepairTest, CorruptManifest) {
   // Manifest is in an invalid format. Expect a full recovery.
   Put("key", "val");
   Flush();
@@ -82,7 +82,7 @@ TEST_F(DISABLED_RepairTest, CorruptManifest) {
   ASSERT_EQ(Get("key2"), "val2");
 }
 
-TEST_F(DISABLED_RepairTest, IncompleteManifest) {
+TEST_F(RepairTest, IncompleteManifest) {
   // In this case, the manifest is valid but does not reference all of the SST
   // files. Expect a full recovery.
   Put("key", "val");
@@ -108,7 +108,7 @@ TEST_F(DISABLED_RepairTest, IncompleteManifest) {
   ASSERT_EQ(Get("key2"), "val2");
 }
 
-TEST_F(DISABLED_RepairTest, PostRepairSstFileNumbering) {
+TEST_F(RepairTest, PostRepairSstFileNumbering) {
   // Verify after a DB is repaired, new files will be assigned higher numbers
   // than old files.
   Put("key", "val");
@@ -125,7 +125,7 @@ TEST_F(DISABLED_RepairTest, PostRepairSstFileNumbering) {
   ASSERT_GE(post_repair_file_num, pre_repair_file_num);
 }
 
-TEST_F(DISABLED_RepairTest, LostSst) {
+TEST_F(RepairTest, LostSst) {
   // Delete one of the SST files but preserve the manifest that refers to it,
   // then verify the DB is still usable for the intact SST.
   Put("key", "val");
@@ -144,7 +144,7 @@ TEST_F(DISABLED_RepairTest, LostSst) {
   ASSERT_TRUE((Get("key") == "val") != (Get("key2") == "val2"));
 }
 
-TEST_F(DISABLED_RepairTest, CorruptSst) {
+TEST_F(RepairTest, CorruptSst) {
   // Corrupt one of the SST files but preserve the manifest that refers to it,
   // then verify the DB is still usable for the intact SST.
   Put("key", "val");
@@ -163,7 +163,7 @@ TEST_F(DISABLED_RepairTest, CorruptSst) {
   ASSERT_TRUE((Get("key") == "val") != (Get("key2") == "val2"));
 }
 
-TEST_F(DISABLED_RepairTest, UnflushedSst) {
+TEST_F(RepairTest, UnflushedSst) {
   // This test case invokes repair while some data is unflushed, then verifies
   // that data is in the db.
   Put("key", "val");
@@ -191,7 +191,7 @@ TEST_F(DISABLED_RepairTest, UnflushedSst) {
   ASSERT_EQ(Get("key"), "val");
 }
 
-TEST_F(DISABLED_RepairTest, SeparateWalDir) {
+TEST_F(RepairTest, SeparateWalDir) {
   do {
     Options options = CurrentOptions();
     DestroyAndReopen(options);
@@ -225,7 +225,7 @@ TEST_F(DISABLED_RepairTest, SeparateWalDir) {
  } while(ChangeWalOptions());
 }
 
-TEST_F(DISABLED_RepairTest, RepairMultipleColumnFamilies) {
+TEST_F(RepairTest, RepairMultipleColumnFamilies) {
   // Verify repair logic associates SST files with their original column
   // families.
   const int kNumCfs = 3;
@@ -263,7 +263,7 @@ TEST_F(DISABLED_RepairTest, RepairMultipleColumnFamilies) {
   }
 }
 
-TEST_F(DISABLED_RepairTest, RepairColumnFamilyOptions) {
+TEST_F(RepairTest, RepairColumnFamilyOptions) {
   // Verify repair logic uses correct ColumnFamilyOptions when repairing a
   // database with different options for column families.
   const int kNumCfs = 2;
@@ -326,12 +326,12 @@ TEST_F(DISABLED_RepairTest, RepairColumnFamilyOptions) {
   }
 }
 
-TEST_F(DISABLED_RepairTest, DbNameContainsTrailingSlash) {
+TEST_F(RepairTest, DbNameContainsTrailingSlash) {
   {
     bool tmp;
     if (env_->AreFilesSame("", "", &tmp).IsNotSupported()) {
       fprintf(stderr,
-              "skipping DISABLED_RepairTest.DbNameContainsTrailingSlash due to "
+              "skipping RepairTest.DbNameContainsTrailingSlash due to "
               "unsupported Env::AreFilesSame\n");
       return;
     }

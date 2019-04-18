@@ -190,7 +190,7 @@ TEST_F(DBOptionsTest, SetWalBytesPerSync) {
   const std::string kValue(kValueSize, 'v');
   int i = 0;
   for (; i < 10; i++) {
-    Put(Key(i), kValue, WriteOptions(), false);
+    Put(Key(i), kValue);
   }
   // Do not flush. If we flush here, SwitchWAL will reuse old WAL file since its
   // empty and will not get the new wal_bytes_per_sync value.
@@ -201,7 +201,7 @@ TEST_F(DBOptionsTest, SetWalBytesPerSync) {
   counter = 0;
   i = 0;
   for (; i < 10; i++) {
-    Put(Key(i), kValue, WriteOptions(), false);
+    Put(Key(i), kValue);
   }
   ASSERT_GT(counter, 0);
   ASSERT_GT(low_bytes_per_sync, 0);
@@ -234,8 +234,8 @@ TEST_F(DBOptionsTest, WritableFileMaxBufferSize) {
   rocksdb::SyncPoint::GetInstance()->EnableProcessing();
   int i = 0;
   for (; i < 3; i++) {
-    ASSERT_OK(Put("foo", ToString(i), WriteOptions(), false));
-    ASSERT_OK(Put("bar", ToString(i), WriteOptions(), false));
+    ASSERT_OK(Put("foo", ToString(i)));
+    ASSERT_OK(Put("bar", ToString(i)));
     Flush();
   }
   dbfull()->TEST_WaitForCompact();
@@ -251,8 +251,8 @@ TEST_F(DBOptionsTest, WritableFileMaxBufferSize) {
             dbfull()->GetDBOptions().writable_file_max_buffer_size);
   i = 0;
   for (; i < 3; i++) {
-    ASSERT_OK(Put("foo", ToString(i), WriteOptions(), false));
-    ASSERT_OK(Put("bar", ToString(i), WriteOptions(), false));
+    ASSERT_OK(Put("foo", ToString(i)));
+    ASSERT_OK(Put("bar", ToString(i)));
     Flush();
   }
   dbfull()->TEST_WaitForCompact();
@@ -478,8 +478,8 @@ TEST_F(DBOptionsTest, MaxTotalWalSizeChange) {
   Options options;
   options.create_if_missing = true;
   options.env = env_;
-  //CreateColumnFamilies({"1", "2", "3"}, options);
-  ReopenWithColumnFamilies({"default"/*, "1", "2", "3"*/}, options);
+  CreateColumnFamilies({"1", "2", "3"}, options);
+  ReopenWithColumnFamilies({"default", "1", "2", "3"}, options);
 
   WriteOptions write_options;
 

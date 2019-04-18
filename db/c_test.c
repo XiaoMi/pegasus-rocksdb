@@ -535,10 +535,6 @@ int main(int argc, char** argv) {
 
   StartPhase("checkpoint");
   {
-    rocksdb_put(db, woptions, "foo", 3, "hello", 5, &err);    // PEGASUS: avoid memtable to be empty.
-                                                              // empty memtable will skip create checkpoint in pegasus
-    CheckNoError(err);
-
     rocksdb_destroy_db(options, dbcheckpointname, &err);
     CheckNoError(err);
 
@@ -719,9 +715,8 @@ int main(int argc, char** argv) {
     rocksdb_writebatch_destroy(wb);
   }
 
-  StartPhase("writebatch_savepoint");  // PEGASUS: not support empty batch
+  StartPhase("writebatch_savepoint");
   {
-    /*
     rocksdb_writebatch_t* wb = rocksdb_writebatch_create();
     rocksdb_writebatch_set_save_point(wb);
     rocksdb_writebatch_set_save_point(wb);
@@ -738,7 +733,6 @@ int main(int argc, char** argv) {
     CheckNoError(err);
     CheckGet(db, roptions, "zap", NULL);
     rocksdb_writebatch_destroy(wb);
-    */
   }
 
   StartPhase("writebatch_rep");
@@ -826,9 +820,8 @@ int main(int argc, char** argv) {
     rocksdb_writebatch_wi_destroy(wb);
   }
 
-  StartPhase("writebatch_wi_savepoint");  // PEGASUS: not support empty batch
+  StartPhase("writebatch_wi_savepoint");
   {
-    /*
     rocksdb_writebatch_wi_t* wb = rocksdb_writebatch_wi_create(0, 1);
     rocksdb_writebatch_wi_set_save_point(wb);
     const char* k_list[2] = {"z", "ap"};
@@ -842,7 +835,6 @@ int main(int argc, char** argv) {
     CheckNoError(err);
     CheckGet(db, roptions, "zap", NULL);
     rocksdb_writebatch_wi_destroy(wb);
-    */
   }
 
   StartPhase("iter");

@@ -23,15 +23,14 @@ using std::string;
 
 namespace rocksdb {
 
-// PEGASUS: write count of commit may be 0 in DISABLED_OptimisticTransactionTest, which is not supported in pegasus
-class DISABLED_OptimisticTransactionTest : public testing::Test {
+class OptimisticTransactionTest : public testing::Test {
  public:
   OptimisticTransactionDB* txn_db;
   DB* db;
   string dbname;
   Options options;
 
-  DISABLED_OptimisticTransactionTest() {
+  OptimisticTransactionTest() {
     options.create_if_missing = true;
     options.max_write_buffer_number = 2;
     dbname = test::TmpDir() + "/optimistic_transaction_testdb";
@@ -39,7 +38,7 @@ class DISABLED_OptimisticTransactionTest : public testing::Test {
     DestroyDB(dbname, options);
     Open();
   }
-  ~DISABLED_OptimisticTransactionTest() {
+  ~OptimisticTransactionTest() {
     delete txn_db;
     DestroyDB(dbname, options);
   }
@@ -59,7 +58,7 @@ private:
   }
 };
 
-TEST_F(DISABLED_OptimisticTransactionTest, SuccessTest) {
+TEST_F(OptimisticTransactionTest, SuccessTest) {
   WriteOptions write_options;
   ReadOptions read_options;
   string value;
@@ -88,7 +87,7 @@ TEST_F(DISABLED_OptimisticTransactionTest, SuccessTest) {
   delete txn;
 }
 
-TEST_F(DISABLED_OptimisticTransactionTest, WriteConflictTest) {
+TEST_F(OptimisticTransactionTest, WriteConflictTest) {
   WriteOptions write_options;
   ReadOptions read_options;
   string value;
@@ -122,7 +121,7 @@ TEST_F(DISABLED_OptimisticTransactionTest, WriteConflictTest) {
   delete txn;
 }
 
-TEST_F(DISABLED_OptimisticTransactionTest, WriteConflictTest2) {
+TEST_F(OptimisticTransactionTest, WriteConflictTest2) {
   WriteOptions write_options;
   ReadOptions read_options;
   OptimisticTransactionOptions txn_options;
@@ -157,7 +156,7 @@ TEST_F(DISABLED_OptimisticTransactionTest, WriteConflictTest2) {
   delete txn;
 }
 
-TEST_F(DISABLED_OptimisticTransactionTest, ReadConflictTest) {
+TEST_F(OptimisticTransactionTest, ReadConflictTest) {
   WriteOptions write_options;
   ReadOptions read_options, snapshot_read_options;
   OptimisticTransactionOptions txn_options;
@@ -196,7 +195,7 @@ TEST_F(DISABLED_OptimisticTransactionTest, ReadConflictTest) {
   delete txn;
 }
 
-TEST_F(DISABLED_OptimisticTransactionTest, TxnOnlyTest) {
+TEST_F(OptimisticTransactionTest, TxnOnlyTest) {
   // Test to make sure transactions work when there are no other writes in an
   // empty db.
 
@@ -216,7 +215,7 @@ TEST_F(DISABLED_OptimisticTransactionTest, TxnOnlyTest) {
   delete txn;
 }
 
-TEST_F(DISABLED_OptimisticTransactionTest, FlushTest) {
+TEST_F(OptimisticTransactionTest, FlushTest) {
   WriteOptions write_options;
   ReadOptions read_options, snapshot_read_options;
   string value;
@@ -256,7 +255,7 @@ TEST_F(DISABLED_OptimisticTransactionTest, FlushTest) {
   delete txn;
 }
 
-TEST_F(DISABLED_OptimisticTransactionTest, FlushTest2) {
+TEST_F(OptimisticTransactionTest, FlushTest2) {
   WriteOptions write_options;
   ReadOptions read_options, snapshot_read_options;
   string value;
@@ -311,7 +310,7 @@ TEST_F(DISABLED_OptimisticTransactionTest, FlushTest2) {
   delete txn;
 }
 
-TEST_F(DISABLED_OptimisticTransactionTest, NoSnapshotTest) {
+TEST_F(OptimisticTransactionTest, NoSnapshotTest) {
   WriteOptions write_options;
   ReadOptions read_options;
   string value;
@@ -340,7 +339,7 @@ TEST_F(DISABLED_OptimisticTransactionTest, NoSnapshotTest) {
   delete txn;
 }
 
-TEST_F(DISABLED_OptimisticTransactionTest, MultipleSnapshotTest) {
+TEST_F(OptimisticTransactionTest, MultipleSnapshotTest) {
   WriteOptions write_options;
   ReadOptions read_options, snapshot_read_options;
   string value;
@@ -447,7 +446,7 @@ TEST_F(DISABLED_OptimisticTransactionTest, MultipleSnapshotTest) {
   delete txn2;
 }
 
-TEST_F(DISABLED_OptimisticTransactionTest, ColumnFamiliesTest) {
+TEST_F(OptimisticTransactionTest, ColumnFamiliesTest) {
   WriteOptions write_options;
   ReadOptions read_options, snapshot_read_options;
   OptimisticTransactionOptions txn_options;
@@ -606,7 +605,7 @@ TEST_F(DISABLED_OptimisticTransactionTest, ColumnFamiliesTest) {
   }
 }
 
-TEST_F(DISABLED_OptimisticTransactionTest, EmptyTest) {
+TEST_F(OptimisticTransactionTest, EmptyTest) {
   WriteOptions write_options;
   ReadOptions read_options;
   string value;
@@ -643,7 +642,7 @@ TEST_F(DISABLED_OptimisticTransactionTest, EmptyTest) {
   delete txn;
 }
 
-TEST_F(DISABLED_OptimisticTransactionTest, PredicateManyPreceders) {
+TEST_F(OptimisticTransactionTest, PredicateManyPreceders) {
   WriteOptions write_options;
   ReadOptions read_options1, read_options2;
   OptimisticTransactionOptions txn_options;
@@ -707,7 +706,7 @@ TEST_F(DISABLED_OptimisticTransactionTest, PredicateManyPreceders) {
   delete txn2;
 }
 
-TEST_F(DISABLED_OptimisticTransactionTest, LostUpdate) {
+TEST_F(OptimisticTransactionTest, LostUpdate) {
   WriteOptions write_options;
   ReadOptions read_options, read_options1, read_options2;
   OptimisticTransactionOptions txn_options;
@@ -805,7 +804,7 @@ TEST_F(DISABLED_OptimisticTransactionTest, LostUpdate) {
   ASSERT_EQ(value, "8");
 }
 
-TEST_F(DISABLED_OptimisticTransactionTest, UntrackedWrites) {
+TEST_F(OptimisticTransactionTest, UntrackedWrites) {
   WriteOptions write_options;
   ReadOptions read_options;
   string value;
@@ -856,7 +855,7 @@ TEST_F(DISABLED_OptimisticTransactionTest, UntrackedWrites) {
   delete txn;
 }
 
-TEST_F(DISABLED_OptimisticTransactionTest, IteratorTest) {
+TEST_F(OptimisticTransactionTest, IteratorTest) {
   WriteOptions write_options;
   ReadOptions read_options, snapshot_read_options;
   OptimisticTransactionOptions txn_options;
@@ -971,7 +970,7 @@ TEST_F(DISABLED_OptimisticTransactionTest, IteratorTest) {
   delete txn;
 }
 
-TEST_F(DISABLED_OptimisticTransactionTest, SavepointTest) {
+TEST_F(OptimisticTransactionTest, SavepointTest) {
   WriteOptions write_options;
   ReadOptions read_options, snapshot_read_options;
   OptimisticTransactionOptions txn_options;
@@ -1135,7 +1134,7 @@ TEST_F(DISABLED_OptimisticTransactionTest, SavepointTest) {
   delete txn;
 }
 
-TEST_F(DISABLED_OptimisticTransactionTest, UndoGetForUpdateTest) {
+TEST_F(OptimisticTransactionTest, UndoGetForUpdateTest) {
   WriteOptions write_options;
   ReadOptions read_options, snapshot_read_options;
   OptimisticTransactionOptions txn_options;
@@ -1324,7 +1323,7 @@ Status OptimisticTransactionStressTestInserter(OptimisticTransactionDB* db,
 }
 }  // namespace
 
-TEST_F(DISABLED_OptimisticTransactionTest, OptimisticTransactionStressTest) {
+TEST_F(OptimisticTransactionTest, OptimisticTransactionStressTest) {
   const size_t num_threads = 4;
   const size_t num_transactions_per_thread = 10000;
   const size_t num_sets = 3;
@@ -1355,7 +1354,7 @@ TEST_F(DISABLED_OptimisticTransactionTest, OptimisticTransactionStressTest) {
   ASSERT_OK(s);
 }
 
-TEST_F(DISABLED_OptimisticTransactionTest, SequenceNumberAfterRecoverTest) {
+TEST_F(OptimisticTransactionTest, SequenceNumberAfterRecoverTest) {
   WriteOptions write_options;
   OptimisticTransactionOptions transaction_options;
 

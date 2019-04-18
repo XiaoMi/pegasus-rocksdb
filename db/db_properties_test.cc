@@ -36,34 +36,32 @@ TEST_F(DBPropertiesTest, Empty) {
     options.write_buffer_size = 100000;  // Small write buffer
     options.allow_concurrent_memtable_write = false;
     options = CurrentOptions(options);
-    //CreateAndReopenWithCF({"pikachu"}, options);
-    Reopen(options);
+    CreateAndReopenWithCF({"pikachu"}, options);
 
-    ColumnFamilyHandle* dcfh = db_->DefaultColumnFamily();
     std::string num;
     ASSERT_TRUE(dbfull()->GetProperty(
-        dcfh, "rocksdb.num-entries-active-mem-table", &num));
+        handles_[1], "rocksdb.num-entries-active-mem-table", &num));
     ASSERT_EQ("0", num);
 
-    ASSERT_OK(Put("foo", "v1"));
-    ASSERT_EQ("v1", Get("foo"));
+    ASSERT_OK(Put(1, "foo", "v1"));
+    ASSERT_EQ("v1", Get(1, "foo"));
     ASSERT_TRUE(dbfull()->GetProperty(
-        dcfh, "rocksdb.num-entries-active-mem-table", &num));
+        handles_[1], "rocksdb.num-entries-active-mem-table", &num));
     ASSERT_EQ("1", num);
 
     // Block sync calls
     env_->delay_sstable_sync_.store(true, std::memory_order_release);
-    Put("k1", std::string(100000, 'x'));  // Fill memtable
+    Put(1, "k1", std::string(100000, 'x'));  // Fill memtable
     ASSERT_TRUE(dbfull()->GetProperty(
-        dcfh, "rocksdb.num-entries-active-mem-table", &num));
+        handles_[1], "rocksdb.num-entries-active-mem-table", &num));
     ASSERT_EQ("2", num);
 
-    Put("k2", std::string(100000, 'y'));  // Trigger compaction
+    Put(1, "k2", std::string(100000, 'y'));  // Trigger compaction
     ASSERT_TRUE(dbfull()->GetProperty(
-        dcfh, "rocksdb.num-entries-active-mem-table", &num));
+        handles_[1], "rocksdb.num-entries-active-mem-table", &num));
     ASSERT_EQ("1", num);
 
-    ASSERT_EQ("v1", Get("foo"));
+    ASSERT_EQ("v1", Get(1, "foo"));
     // Release sync calls
     env_->delay_sstable_sync_.store(false, std::memory_order_release);
 
@@ -91,7 +89,7 @@ TEST_F(DBPropertiesTest, Empty) {
     ASSERT_TRUE(
         dbfull()->GetProperty("rocksdb.is-file-deletions-enabled", &num));
     ASSERT_EQ("0", num);
-  } while (ChangeOptions(kSkipPipelinedWrite));
+  } while (ChangeOptions());
 }
 
 TEST_F(DBPropertiesTest, CurrentVersionNumber) {
@@ -122,26 +120,24 @@ TEST_F(DBPropertiesTest, GetAggregatedIntPropertyTest) {
   options.min_write_buffer_number_to_merge = 1000;
   options.max_write_buffer_number = 1000;
   options = CurrentOptions(options);
-  //CreateAndReopenWithCF({"one", "two", "three", "four"}, options);
-  Reopen(options);
+  CreateAndReopenWithCF({"one", "two", "three", "four"}, options);
 
-  ColumnFamilyHandle* dcfh = db_->DefaultColumnFamily();
   Random rnd(301);
-  //for (auto* handle : handles_) {
+  for (auto* handle : handles_) {
     for (int i = 0; i < kKeyNum; ++i) {
-      db_->Put(WriteOptions(), dcfh, RandomString(&rnd, kKeySize),
+      db_->Put(WriteOptions(), handle, RandomString(&rnd, kKeySize),
                RandomString(&rnd, kValueSize));
     }
-  //}
+  }
 
   uint64_t manual_sum = 0;
   uint64_t api_sum = 0;
   uint64_t value = 0;
-  //for (auto* handle : handles_) {
+  for (auto* handle : handles_) {
     ASSERT_TRUE(
-        db_->GetIntProperty(dcfh, DB::Properties::kSizeAllMemTables, &value));
+        db_->GetIntProperty(handle, DB::Properties::kSizeAllMemTables, &value));
     manual_sum += value;
-  //}
+  }
   ASSERT_TRUE(db_->GetAggregatedIntProperty(DB::Properties::kSizeAllMemTables,
                                             &api_sum));
   ASSERT_GT(manual_sum, 0);
@@ -151,17 +147,17 @@ TEST_F(DBPropertiesTest, GetAggregatedIntPropertyTest) {
 
   uint64_t before_flush_trm;
   uint64_t after_flush_trm;
-  //for (auto* handle : handles_) {
+  for (auto* handle : handles_) {
     ASSERT_TRUE(db_->GetAggregatedIntProperty(
         DB::Properties::kEstimateTableReadersMem, &before_flush_trm));
 
     // Issue flush and expect larger memory usage of table readers.
-    db_->Flush(FlushOptions(), dcfh);
+    db_->Flush(FlushOptions(), handle);
 
     ASSERT_TRUE(db_->GetAggregatedIntProperty(
         DB::Properties::kEstimateTableReadersMem, &after_flush_trm));
     ASSERT_GT(after_flush_trm, before_flush_trm);
-  //}
+  }
 }
 
 namespace {
@@ -346,9 +342,7 @@ TEST_F(DBPropertiesTest, ReadLatencyHistogramByLevel) {
   BlockBasedTableOptions table_options;
   table_options.no_block_cache = true;
 
-  //CreateAndReopenWithCF({"pikachu"}, options);
-  Reopen(options);
-
+  CreateAndReopenWithCF({"pikachu"}, options);
   int key_index = 0;
   Random rnd(301);
   for (int num = 0; num < 8; num++) {
@@ -371,8 +365,7 @@ TEST_F(DBPropertiesTest, ReadLatencyHistogramByLevel) {
   ASSERT_EQ(std::string::npos, prop.find("** Level 2 read latency histogram"));
 
   // Reopen and issue Get(). See thee latency tracked
-  //ReopenWithColumnFamilies({"default", "pikachu"}, options);
-  Reopen(options);
+  ReopenWithColumnFamilies({"default", "pikachu"}, options);
   dbfull()->TEST_WaitForCompact();
   for (int key = 0; key < key_index; key++) {
     Get(Key(key));
@@ -384,8 +377,7 @@ TEST_F(DBPropertiesTest, ReadLatencyHistogramByLevel) {
   ASSERT_EQ(std::string::npos, prop.find("** Level 2 read latency histogram"));
 
   // Reopen and issue iterating. See thee latency tracked
-  //ReopenWithColumnFamilies({"default", "pikachu"}, options);
-  Reopen(options);
+  ReopenWithColumnFamilies({"default", "pikachu"}, options);
   ASSERT_TRUE(dbfull()->GetProperty("rocksdb.cf-file-histogram", &prop));
   ASSERT_EQ(std::string::npos, prop.find("** Level 0 read latency histogram"));
   ASSERT_EQ(std::string::npos, prop.find("** Level 1 read latency histogram"));
@@ -401,28 +393,26 @@ TEST_F(DBPropertiesTest, ReadLatencyHistogramByLevel) {
   ASSERT_EQ(std::string::npos, prop.find("** Level 2 read latency histogram"));
 
   // CF 1 should show no histogram.
-  // TODO: add a new test case
-/*  ASSERT_TRUE(
+  ASSERT_TRUE(
       dbfull()->GetProperty(handles_[1], "rocksdb.cf-file-histogram", &prop));
   ASSERT_EQ(std::string::npos, prop.find("** Level 0 read latency histogram"));
   ASSERT_EQ(std::string::npos, prop.find("** Level 1 read latency histogram"));
   ASSERT_EQ(std::string::npos, prop.find("** Level 2 read latency histogram"));
   // put something and read it back , CF 1 should show histogram.
-  Put("foo", "bar");
-  Flush();
+  Put(1, "foo", "bar");
+  Flush(1);
   dbfull()->TEST_WaitForCompact();
-  ASSERT_EQ("bar", Get("foo"));
+  ASSERT_EQ("bar", Get(1, "foo"));
 
   ASSERT_TRUE(
       dbfull()->GetProperty(handles_[1], "rocksdb.cf-file-histogram", &prop));
   ASSERT_NE(std::string::npos, prop.find("** Level 0 read latency histogram"));
   ASSERT_EQ(std::string::npos, prop.find("** Level 1 read latency histogram"));
-  ASSERT_EQ(std::string::npos, prop.find("** Level 2 read latency histogram"));*/
+  ASSERT_EQ(std::string::npos, prop.find("** Level 2 read latency histogram"));
 
   // options.max_open_files preloads table readers.
   options.max_open_files = -1;
-  //ReopenWithColumnFamilies({"default", "pikachu"}, options);
-  Reopen(options);
+  ReopenWithColumnFamilies({"default", "pikachu"}, options);
   ASSERT_TRUE(dbfull()->GetProperty(dbfull()->DefaultColumnFamily(),
                                     "rocksdb.cf-file-histogram", &prop));
   ASSERT_NE(std::string::npos, prop.find("** Level 0 read latency histogram"));
@@ -525,8 +515,7 @@ TEST_F(DBPropertiesTest, NumImmutableMemTable) {
     options.min_write_buffer_number_to_merge = 3;
     options.max_write_buffer_number_to_maintain = 4;
     options.write_buffer_size = 1000000;
-    //CreateAndReopenWithCF({"pikachu"}, options);
-    Reopen(options);
+    CreateAndReopenWithCF({"pikachu"}, options);
 
     std::string big_value(1000000 * 2, 'x');
     std::string num;
@@ -534,69 +523,69 @@ TEST_F(DBPropertiesTest, NumImmutableMemTable) {
     SetPerfLevel(kEnableTime);
     ASSERT_TRUE(GetPerfLevel() == kEnableTime);
 
-    ASSERT_OK(dbfull()->Put(writeOpt, "k1", big_value));
-    ASSERT_TRUE(dbfull()->GetProperty(
+    ASSERT_OK(dbfull()->Put(writeOpt, handles_[1], "k1", big_value));
+    ASSERT_TRUE(dbfull()->GetProperty(handles_[1],
                                       "rocksdb.num-immutable-mem-table", &num));
     ASSERT_EQ(num, "0");
     ASSERT_TRUE(dbfull()->GetProperty(
-        DB::Properties::kNumImmutableMemTableFlushed, &num));
+        handles_[1], DB::Properties::kNumImmutableMemTableFlushed, &num));
     ASSERT_EQ(num, "0");
     ASSERT_TRUE(dbfull()->GetProperty(
-        "rocksdb.num-entries-active-mem-table", &num));
+        handles_[1], "rocksdb.num-entries-active-mem-table", &num));
     ASSERT_EQ(num, "1");
     get_perf_context()->Reset();
-    Get("k1");
+    Get(1, "k1");
     ASSERT_EQ(1, static_cast<int>(get_perf_context()->get_from_memtable_count));
 
-    ASSERT_OK(dbfull()->Put(writeOpt, "k2", big_value));
-    ASSERT_TRUE(dbfull()->GetProperty(
+    ASSERT_OK(dbfull()->Put(writeOpt, handles_[1], "k2", big_value));
+    ASSERT_TRUE(dbfull()->GetProperty(handles_[1],
                                       "rocksdb.num-immutable-mem-table", &num));
     ASSERT_EQ(num, "1");
     ASSERT_TRUE(dbfull()->GetProperty(
-        "rocksdb.num-entries-active-mem-table", &num));
+        handles_[1], "rocksdb.num-entries-active-mem-table", &num));
     ASSERT_EQ(num, "1");
     ASSERT_TRUE(dbfull()->GetProperty(
-        "rocksdb.num-entries-imm-mem-tables", &num));
+        handles_[1], "rocksdb.num-entries-imm-mem-tables", &num));
     ASSERT_EQ(num, "1");
 
     get_perf_context()->Reset();
-    Get("k1");
+    Get(1, "k1");
     ASSERT_EQ(2, static_cast<int>(get_perf_context()->get_from_memtable_count));
     get_perf_context()->Reset();
-    Get("k2");
+    Get(1, "k2");
     ASSERT_EQ(1, static_cast<int>(get_perf_context()->get_from_memtable_count));
 
-    ASSERT_OK(dbfull()->Put(writeOpt, "k3", big_value));
+    ASSERT_OK(dbfull()->Put(writeOpt, handles_[1], "k3", big_value));
     ASSERT_TRUE(dbfull()->GetProperty(
-        "rocksdb.cur-size-active-mem-table", &num));
-    ASSERT_TRUE(dbfull()->GetProperty(
+        handles_[1], "rocksdb.cur-size-active-mem-table", &num));
+    ASSERT_TRUE(dbfull()->GetProperty(handles_[1],
                                       "rocksdb.num-immutable-mem-table", &num));
     ASSERT_EQ(num, "2");
     ASSERT_TRUE(dbfull()->GetProperty(
-        "rocksdb.num-entries-active-mem-table", &num));
+        handles_[1], "rocksdb.num-entries-active-mem-table", &num));
     ASSERT_EQ(num, "1");
     ASSERT_TRUE(dbfull()->GetProperty(
-        "rocksdb.num-entries-imm-mem-tables", &num));
+        handles_[1], "rocksdb.num-entries-imm-mem-tables", &num));
     ASSERT_EQ(num, "2");
     get_perf_context()->Reset();
-    Get("k2");
+    Get(1, "k2");
     ASSERT_EQ(2, static_cast<int>(get_perf_context()->get_from_memtable_count));
     get_perf_context()->Reset();
-    Get("k3");
+    Get(1, "k3");
     ASSERT_EQ(1, static_cast<int>(get_perf_context()->get_from_memtable_count));
     get_perf_context()->Reset();
-    Get("k1");
+    Get(1, "k1");
     ASSERT_EQ(3, static_cast<int>(get_perf_context()->get_from_memtable_count));
 
-    ASSERT_OK(Flush());
-    ASSERT_TRUE(dbfull()->GetProperty(
+    ASSERT_OK(Flush(1));
+    ASSERT_TRUE(dbfull()->GetProperty(handles_[1],
                                       "rocksdb.num-immutable-mem-table", &num));
     ASSERT_EQ(num, "0");
     ASSERT_TRUE(dbfull()->GetProperty(
-        DB::Properties::kNumImmutableMemTableFlushed, &num));
+        handles_[1], DB::Properties::kNumImmutableMemTableFlushed, &num));
     ASSERT_EQ(num, "3");
     ASSERT_TRUE(dbfull()->GetIntProperty(
-        "rocksdb.cur-size-active-mem-table", &value));
+        handles_[1], "rocksdb.cur-size-active-mem-table", &value));
     // "192" is the size of the metadata of two empty skiplists, this would
     // break if we change the default skiplist implementation
     ASSERT_GE(value, 192);
@@ -604,29 +593,29 @@ TEST_F(DBPropertiesTest, NumImmutableMemTable) {
     uint64_t int_num;
     uint64_t base_total_size;
     ASSERT_TRUE(dbfull()->GetIntProperty(
-        "rocksdb.estimate-num-keys", &base_total_size));
+        handles_[1], "rocksdb.estimate-num-keys", &base_total_size));
 
-    ASSERT_OK(dbfull()->Delete(writeOpt, "k2"));
-    ASSERT_OK(dbfull()->Put(writeOpt, "k3", ""));
-    ASSERT_OK(dbfull()->Delete(writeOpt, "k3"));
+    ASSERT_OK(dbfull()->Delete(writeOpt, handles_[1], "k2"));
+    ASSERT_OK(dbfull()->Put(writeOpt, handles_[1], "k3", ""));
+    ASSERT_OK(dbfull()->Delete(writeOpt, handles_[1], "k3"));
     ASSERT_TRUE(dbfull()->GetIntProperty(
-        "rocksdb.num-deletes-active-mem-table", &int_num));
+        handles_[1], "rocksdb.num-deletes-active-mem-table", &int_num));
     ASSERT_EQ(int_num, 2U);
     ASSERT_TRUE(dbfull()->GetIntProperty(
-        "rocksdb.num-entries-active-mem-table", &int_num));
+        handles_[1], "rocksdb.num-entries-active-mem-table", &int_num));
     ASSERT_EQ(int_num, 3U);
 
-    ASSERT_OK(dbfull()->Put(writeOpt, "k2", big_value));
-    ASSERT_OK(dbfull()->Put(writeOpt, "k2", big_value));
+    ASSERT_OK(dbfull()->Put(writeOpt, handles_[1], "k2", big_value));
+    ASSERT_OK(dbfull()->Put(writeOpt, handles_[1], "k2", big_value));
     ASSERT_TRUE(dbfull()->GetIntProperty(
-        "rocksdb.num-entries-imm-mem-tables", &int_num));
+        handles_[1], "rocksdb.num-entries-imm-mem-tables", &int_num));
     ASSERT_EQ(int_num, 4U);
     ASSERT_TRUE(dbfull()->GetIntProperty(
-        "rocksdb.num-deletes-imm-mem-tables", &int_num));
+        handles_[1], "rocksdb.num-deletes-imm-mem-tables", &int_num));
     ASSERT_EQ(int_num, 2U);
 
     ASSERT_TRUE(dbfull()->GetIntProperty(
-        "rocksdb.estimate-num-keys", &int_num));
+        handles_[1], "rocksdb.estimate-num-keys", &int_num));
     ASSERT_EQ(int_num, base_total_size + 1);
 
     SetPerfLevel(kDisable);
@@ -1120,16 +1109,15 @@ TEST_F(DBPropertiesTest, UserDefinedTablePropertiesContext) {
   options.level0_file_num_compaction_trigger = 3;
   options.table_properties_collector_factories.resize(1);
   std::shared_ptr<CountingUserTblPropCollectorFactory> collector_factory =
-      std::make_shared<CountingUserTblPropCollectorFactory>(0);
+      std::make_shared<CountingUserTblPropCollectorFactory>(1);
   options.table_properties_collector_factories[0] = collector_factory,
-  Reopen(options);
-  //CreateAndReopenWithCF({"pikachu"}, options);
+  CreateAndReopenWithCF({"pikachu"}, options);
   // Create 2 files
   for (int table = 0; table < 2; ++table) {
     for (int i = 0; i < 10 + table; ++i) {
-      Put(ToString(table * 100 + i), "val");
+      Put(1, ToString(table * 100 + i), "val");
     }
-    Flush();
+    Flush(1);
   }
   ASSERT_GT(collector_factory->num_created_, 0U);
 
@@ -1137,15 +1125,15 @@ TEST_F(DBPropertiesTest, UserDefinedTablePropertiesContext) {
   // Trigger automatic compactions.
   for (int table = 0; table < 3; ++table) {
     for (int i = 0; i < 10 + table; ++i) {
-      Put(ToString(table * 100 + i), "val");
+      Put(1, ToString(table * 100 + i), "val");
     }
-    Flush();
+    Flush(1);
     dbfull()->TEST_WaitForCompact();
   }
   ASSERT_GT(collector_factory->num_created_, 0U);
 
   collector_factory->num_created_ = 0;
-  dbfull()->TEST_CompactRange(0, nullptr, nullptr);
+  dbfull()->TEST_CompactRange(0, nullptr, nullptr, handles_[1]);
   ASSERT_GT(collector_factory->num_created_, 0U);
 
   // Come back to write to default column family

@@ -472,10 +472,9 @@ static void AssertEmpty(DB* db, int from, int to) {
   }
 }
 
-// pegasus: we dont support backup now
-class DISABLED_BackupableDBTest : public testing::Test {
+class BackupableDBTest : public testing::Test {
  public:
-  DISABLED_BackupableDBTest() {
+  BackupableDBTest() {
     // set up files
     std::string db_chroot = test::TmpDir() + "/backupable_db";
     std::string backup_chroot = test::TmpDir() + "/backupable_db_backup";
@@ -636,7 +635,7 @@ class DISABLED_BackupableDBTest : public testing::Test {
 
  protected:
   unique_ptr<BackupableDBOptions> backupable_options_;
-}; // DISABLED_BackupableDBTest
+}; // BackupableDBTest
 
 void AppendPath(const std::string& path, std::vector<std::string>& v) {
   for (auto& f : v) {
@@ -644,17 +643,17 @@ void AppendPath(const std::string& path, std::vector<std::string>& v) {
   }
 }
 
-class DISABLED_BackupableDBTestWithParam : public DISABLED_BackupableDBTest,
+class BackupableDBTestWithParam : public BackupableDBTest,
                                   public testing::WithParamInterface<bool> {
  public:
-  DISABLED_BackupableDBTestWithParam() {
+  BackupableDBTestWithParam() {
     backupable_options_->share_files_with_checksum = GetParam();
   }
 };
 
 // This test verifies that the verifyBackup method correctly identifies
 // invalid backups
-TEST_P(DISABLED_BackupableDBTestWithParam, VerifyBackup) {
+TEST_P(BackupableDBTestWithParam, VerifyBackup) {
   const int keys_iteration = 5000;
   Random rnd(6);
   Status s;
@@ -686,7 +685,7 @@ TEST_P(DISABLED_BackupableDBTestWithParam, VerifyBackup) {
 }
 
 // open DB, write, close DB, backup, restore, repeat
-TEST_P(DISABLED_BackupableDBTestWithParam, OfflineIntegrationTest) {
+TEST_P(BackupableDBTestWithParam, OfflineIntegrationTest) {
   // has to be a big number, so that it triggers the memtable flush
   const int keys_iteration = 5000;
   const int max_key = keys_iteration * 4 + 10;
@@ -733,7 +732,7 @@ TEST_P(DISABLED_BackupableDBTestWithParam, OfflineIntegrationTest) {
 }
 
 // open DB, write, backup, write, backup, close, restore
-TEST_P(DISABLED_BackupableDBTestWithParam, OnlineIntegrationTest) {
+TEST_P(BackupableDBTestWithParam, OnlineIntegrationTest) {
   // has to be a big number, so that it triggers the memtable flush
   const int keys_iteration = 5000;
   const int max_key = keys_iteration * 4 + 10;
@@ -794,11 +793,11 @@ TEST_P(DISABLED_BackupableDBTestWithParam, OnlineIntegrationTest) {
   CloseBackupEngine();
 }
 
-INSTANTIATE_TEST_CASE_P(DISABLED_BackupableDBTestWithParam, DISABLED_BackupableDBTestWithParam,
+INSTANTIATE_TEST_CASE_P(BackupableDBTestWithParam, BackupableDBTestWithParam,
                         ::testing::Bool());
 
 // this will make sure that backup does not copy the same file twice
-TEST_F(DISABLED_BackupableDBTest, NoDoubleCopy) {
+TEST_F(BackupableDBTest, NoDoubleCopy) {
   OpenDBAndBackupEngine(true, true);
 
   // should write 5 DB files + one meta file
@@ -861,7 +860,7 @@ TEST_F(DISABLED_BackupableDBTest, NoDoubleCopy) {
 //      fine
 // 3. Corrupted checksum value - if the checksum is not a valid uint32_t,
 //      db open should fail, otherwise, it aborts during the restore process.
-TEST_F(DISABLED_BackupableDBTest, CorruptionsTest) {
+TEST_F(BackupableDBTest, CorruptionsTest) {
   const int keys_iteration = 5000;
   Random rnd(6);
   Status s;
@@ -961,7 +960,7 @@ TEST_F(DISABLED_BackupableDBTest, CorruptionsTest) {
   AssertBackupConsistency(2, 0, keys_iteration * 2, keys_iteration * 5);
 }
 
-TEST_F(DISABLED_BackupableDBTest, InterruptCreationTest) {
+TEST_F(BackupableDBTest, InterruptCreationTest) {
   // Interrupt backup creation by failing new writes and failing cleanup of the
   // partial state. Then verify a subsequent backup can still succeed.
   const int keys_iteration = 5000;
@@ -997,7 +996,7 @@ inline std::string OptionsPath(std::string ret, int backupID) {
 // Backup the LATEST options file to
 // "<backup_dir>/private/<backup_id>/OPTIONS<number>"
 
-TEST_F(DISABLED_BackupableDBTest, BackupOptions) {
+TEST_F(BackupableDBTest, BackupOptions) {
   OpenDBAndBackupEngine(true);
   for (int i = 1; i < 5; i++) {
     std::string name;
@@ -1022,7 +1021,7 @@ TEST_F(DISABLED_BackupableDBTest, BackupOptions) {
 
 // This test verifies we don't delete the latest backup when read-only option is
 // set
-TEST_F(DISABLED_BackupableDBTest, NoDeleteWithReadOnly) {
+TEST_F(BackupableDBTest, NoDeleteWithReadOnly) {
   const int keys_iteration = 5000;
   Random rnd(6);
   Status s;
@@ -1055,7 +1054,7 @@ TEST_F(DISABLED_BackupableDBTest, NoDeleteWithReadOnly) {
   delete read_only_backup_engine;
 }
 
-TEST_F(DISABLED_BackupableDBTest, FailOverwritingBackups) {
+TEST_F(BackupableDBTest, FailOverwritingBackups) {
   options_.write_buffer_size = 1024 * 1024 * 1024;  // 1GB
   options_.disable_auto_compactions = true;
 
@@ -1092,7 +1091,7 @@ TEST_F(DISABLED_BackupableDBTest, FailOverwritingBackups) {
   CloseDBAndBackupEngine();
 }
 
-TEST_F(DISABLED_BackupableDBTest, NoShareTableFiles) {
+TEST_F(BackupableDBTest, NoShareTableFiles) {
   const int keys_iteration = 5000;
   OpenDBAndBackupEngine(true, false, false);
   for (int i = 0; i < 5; ++i) {
@@ -1108,7 +1107,7 @@ TEST_F(DISABLED_BackupableDBTest, NoShareTableFiles) {
 }
 
 // Verify that you can backup and restore with share_files_with_checksum on
-TEST_F(DISABLED_BackupableDBTest, ShareTableFilesWithChecksums) {
+TEST_F(BackupableDBTest, ShareTableFilesWithChecksums) {
   const int keys_iteration = 5000;
   OpenDBAndBackupEngineShareWithChecksum(true, false, true, true);
   for (int i = 0; i < 5; ++i) {
@@ -1125,7 +1124,7 @@ TEST_F(DISABLED_BackupableDBTest, ShareTableFilesWithChecksums) {
 
 // Verify that you can backup and restore using share_files_with_checksum set to
 // false and then transition this option to true
-TEST_F(DISABLED_BackupableDBTest, ShareTableFilesWithChecksumsTransition) {
+TEST_F(BackupableDBTest, ShareTableFilesWithChecksumsTransition) {
   const int keys_iteration = 5000;
   // set share_files_with_checksum to false
   OpenDBAndBackupEngineShareWithChecksum(true, false, true, false);
@@ -1154,7 +1153,7 @@ TEST_F(DISABLED_BackupableDBTest, ShareTableFilesWithChecksumsTransition) {
   }
 }
 
-TEST_F(DISABLED_BackupableDBTest, DeleteTmpFiles) {
+TEST_F(BackupableDBTest, DeleteTmpFiles) {
   for (bool shared_checksum : {false, true}) {
     if (shared_checksum) {
       OpenDBAndBackupEngineShareWithChecksum(
@@ -1193,7 +1192,7 @@ TEST_F(DISABLED_BackupableDBTest, DeleteTmpFiles) {
   }
 }
 
-TEST_F(DISABLED_BackupableDBTest, KeepLogFiles) {
+TEST_F(BackupableDBTest, KeepLogFiles) {
   backupable_options_->backup_log_files = false;
   // basically infinite
   options_.WAL_ttl_seconds = 24 * 60 * 60;
@@ -1214,7 +1213,7 @@ TEST_F(DISABLED_BackupableDBTest, KeepLogFiles) {
   AssertBackupConsistency(0, 0, 500, 600, true);
 }
 
-TEST_F(DISABLED_BackupableDBTest, RateLimiting) {
+TEST_F(BackupableDBTest, RateLimiting) {
   size_t const kMicrosPerSec = 1000 * 1000LL;
   uint64_t const MB = 1024 * 1024;
 
@@ -1271,7 +1270,7 @@ TEST_F(DISABLED_BackupableDBTest, RateLimiting) {
   }
 }
 
-TEST_F(DISABLED_BackupableDBTest, ReadOnlyBackupEngine) {
+TEST_F(BackupableDBTest, ReadOnlyBackupEngine) {
   DestroyDB(dbname_, options_);
   OpenDBAndBackupEngine(true);
   FillDB(db_.get(), 0, 100);
@@ -1303,7 +1302,7 @@ TEST_F(DISABLED_BackupableDBTest, ReadOnlyBackupEngine) {
   delete db;
 }
 
-TEST_F(DISABLED_BackupableDBTest, ProgressCallbackDuringBackup) {
+TEST_F(BackupableDBTest, ProgressCallbackDuringBackup) {
   DestroyDB(dbname_, options_);
   OpenDBAndBackupEngine(true);
   FillDB(db_.get(), 0, 100);
@@ -1317,7 +1316,7 @@ TEST_F(DISABLED_BackupableDBTest, ProgressCallbackDuringBackup) {
   DestroyDB(dbname_, options_);
 }
 
-TEST_F(DISABLED_BackupableDBTest, GarbageCollectionBeforeBackup) {
+TEST_F(BackupableDBTest, GarbageCollectionBeforeBackup) {
   DestroyDB(dbname_, options_);
   OpenDBAndBackupEngine(true);
 
@@ -1343,7 +1342,7 @@ TEST_F(DISABLED_BackupableDBTest, GarbageCollectionBeforeBackup) {
 }
 
 // Test that we properly propagate Env failures
-TEST_F(DISABLED_BackupableDBTest, EnvFailures) {
+TEST_F(BackupableDBTest, EnvFailures) {
   BackupEngine* backup_engine;
 
   // get children failure
@@ -1396,7 +1395,7 @@ TEST_F(DISABLED_BackupableDBTest, EnvFailures) {
 
 // Verify manifest can roll while a backup is being created with the old
 // manifest.
-TEST_F(DISABLED_BackupableDBTest, ChangeManifestDuringBackupCreation) {
+TEST_F(BackupableDBTest, ChangeManifestDuringBackupCreation) {
   DestroyDB(dbname_, options_);
   options_.max_manifest_file_size = 0;  // always rollover manifest for file add
   OpenDBAndBackupEngine(true);
@@ -1434,7 +1433,7 @@ TEST_F(DISABLED_BackupableDBTest, ChangeManifestDuringBackupCreation) {
 }
 
 // see https://github.com/facebook/rocksdb/issues/921
-TEST_F(DISABLED_BackupableDBTest, Issue921Test) {
+TEST_F(BackupableDBTest, Issue921Test) {
   BackupEngine* backup_engine;
   backupable_options_->share_table_files = false;
   backup_chroot_env_->CreateDirIfMissing(backupable_options_->backup_dir);
@@ -1445,7 +1444,7 @@ TEST_F(DISABLED_BackupableDBTest, Issue921Test) {
   delete backup_engine;
 }
 
-TEST_F(DISABLED_BackupableDBTest, BackupWithMetadata) {
+TEST_F(BackupableDBTest, BackupWithMetadata) {
   const int keys_iteration = 5000;
   OpenDBAndBackupEngine(true);
   // create five backups
@@ -1468,7 +1467,7 @@ TEST_F(DISABLED_BackupableDBTest, BackupWithMetadata) {
   DestroyDB(dbname_, options_);
 }
 
-TEST_F(DISABLED_BackupableDBTest, BinaryMetadata) {
+TEST_F(BackupableDBTest, BinaryMetadata) {
   OpenDBAndBackupEngine(true);
   std::string binaryMetadata = "abc\ndef";
   binaryMetadata.push_back('\0');
@@ -1486,7 +1485,7 @@ TEST_F(DISABLED_BackupableDBTest, BinaryMetadata) {
   DestroyDB(dbname_, options_);
 }
 
-TEST_F(DISABLED_BackupableDBTest, MetadataTooLarge) {
+TEST_F(BackupableDBTest, MetadataTooLarge) {
   OpenDBAndBackupEngine(true);
   std::string largeMetadata(1024 * 1024 + 1, 0);
   ASSERT_NOK(
@@ -1495,7 +1494,7 @@ TEST_F(DISABLED_BackupableDBTest, MetadataTooLarge) {
   DestroyDB(dbname_, options_);
 }
 
-TEST_F(DISABLED_BackupableDBTest, LimitBackupsOpened) {
+TEST_F(BackupableDBTest, LimitBackupsOpened) {
   // Verify the specified max backups are opened, including skipping over
   // corrupted backups.
   //
@@ -1528,7 +1527,7 @@ TEST_F(DISABLED_BackupableDBTest, LimitBackupsOpened) {
   DestroyDB(dbname_, options_);
 }
 
-TEST_F(DISABLED_BackupableDBTest, CreateWhenLatestBackupCorrupted) {
+TEST_F(BackupableDBTest, CreateWhenLatestBackupCorrupted) {
   // we should pick an ID greater than corrupted backups' IDs so creation can
   // succeed even when latest backup is corrupted.
   const int kNumKeys = 5000;
@@ -1549,7 +1548,7 @@ TEST_F(DISABLED_BackupableDBTest, CreateWhenLatestBackupCorrupted) {
   ASSERT_EQ(2, backup_infos[0].backup_id);
 }
 
-TEST_F(DISABLED_BackupableDBTest, WriteOnlyEngine) {
+TEST_F(BackupableDBTest, WriteOnlyEngine) {
   // Verify we can open a backup engine and create new ones even if reading old
   // backups would fail with IOError. IOError is a more serious condition than
   // corruption and would cause the engine to fail opening. So the only way to

@@ -155,7 +155,6 @@ TEST(CommitEntry64b, BasicTest) {
   }
 }
 
-#ifndef PEGASUS
 class WritePreparedTxnDBMock : public WritePreparedTxnDB {
  public:
   WritePreparedTxnDBMock(DBImpl* db_impl, TransactionDBOptions& opt)
@@ -1630,7 +1629,6 @@ TEST_P(WritePreparedTransactionTest, Iterate) {
   delete transaction;
 }
 
-#endif  // PEGASUS
 }  // namespace rocksdb
 
 int main(int argc, char** argv) {

@@ -194,7 +194,6 @@ TEST_F(WriteBatchTest, Append) {
             PrintContents(&b1));
   ASSERT_EQ(4, b1.Count());
   b2.Clear();
-  WriteBatchInternal::SetSequence(&b2, 1);
   b2.Put("c", "cc");
   b2.Put("d", "dd");
   b2.MarkWalTerminationPoint();
@@ -210,9 +209,9 @@ TEST_F(WriteBatchTest, Append) {
       PrintContents(&b1));
   ASSERT_EQ(6, b1.Count());
   ASSERT_EQ(
-      "Put(c, cc)@1"
-      "Put(d, dd)@2"
-      "Put(e, ee)@3",
+      "Put(c, cc)@0"
+      "Put(d, dd)@1"
+      "Put(e, ee)@2",
       PrintContents(&b2));
   ASSERT_EQ(3, b2.Count());
 }
@@ -316,10 +315,9 @@ namespace {
 
 TEST_F(WriteBatchTest, PutNotImplemented) {
   WriteBatch batch;
-  WriteBatchInternal::SetSequence(&batch, 1);
   batch.Put(Slice("k1"), Slice("v1"));
   ASSERT_EQ(1, batch.Count());
-  ASSERT_EQ("Put(k1, v1)@1", PrintContents(&batch));
+  ASSERT_EQ("Put(k1, v1)@0", PrintContents(&batch));
 
   WriteBatch::Handler handler;
   ASSERT_OK(batch.Iterate(&handler));
@@ -327,10 +325,9 @@ TEST_F(WriteBatchTest, PutNotImplemented) {
 
 TEST_F(WriteBatchTest, DeleteNotImplemented) {
   WriteBatch batch;
-  WriteBatchInternal::SetSequence(&batch, 1);
   batch.Delete(Slice("k2"));
   ASSERT_EQ(1, batch.Count());
-  ASSERT_EQ("Delete(k2)@1", PrintContents(&batch));
+  ASSERT_EQ("Delete(k2)@0", PrintContents(&batch));
 
   WriteBatch::Handler handler;
   ASSERT_OK(batch.Iterate(&handler));
@@ -338,10 +335,9 @@ TEST_F(WriteBatchTest, DeleteNotImplemented) {
 
 TEST_F(WriteBatchTest, SingleDeleteNotImplemented) {
   WriteBatch batch;
-  WriteBatchInternal::SetSequence(&batch, 1);
   batch.SingleDelete(Slice("k2"));
   ASSERT_EQ(1, batch.Count());
-  ASSERT_EQ("SingleDelete(k2)@1", PrintContents(&batch));
+  ASSERT_EQ("SingleDelete(k2)@0", PrintContents(&batch));
 
   WriteBatch::Handler handler;
   ASSERT_OK(batch.Iterate(&handler));
@@ -349,10 +345,9 @@ TEST_F(WriteBatchTest, SingleDeleteNotImplemented) {
 
 TEST_F(WriteBatchTest, MergeNotImplemented) {
   WriteBatch batch;
-  WriteBatchInternal::SetSequence(&batch, 1);
   batch.Merge(Slice("foo"), Slice("bar"));
   ASSERT_EQ(1, batch.Count());
-  ASSERT_EQ("Merge(foo, bar)@1", PrintContents(&batch));
+  ASSERT_EQ("Merge(foo, bar)@0", PrintContents(&batch));
 
   WriteBatch::Handler handler;
   ASSERT_OK(batch.Iterate(&handler));
@@ -360,7 +355,6 @@ TEST_F(WriteBatchTest, MergeNotImplemented) {
 
 TEST_F(WriteBatchTest, Blob) {
   WriteBatch batch;
-  WriteBatchInternal::SetSequence(&batch, 1);
   batch.Put(Slice("k1"), Slice("v1"));
   batch.Put(Slice("k2"), Slice("v2"));
   batch.Put(Slice("k3"), Slice("v3"));
@@ -371,12 +365,12 @@ TEST_F(WriteBatchTest, Blob) {
   batch.Merge(Slice("foo"), Slice("bar"));
   ASSERT_EQ(6, batch.Count());
   ASSERT_EQ(
-      "Merge(foo, bar)@6"
-      "Put(k1, v1)@1"
-      "Delete(k2)@4"
-      "Put(k2, v2)@2"
-      "SingleDelete(k3)@5"
-      "Put(k3, v3)@3",
+      "Merge(foo, bar)@5"
+      "Put(k1, v1)@0"
+      "Delete(k2)@3"
+      "Put(k2, v2)@1"
+      "SingleDelete(k3)@4"
+      "Put(k3, v3)@2",
       PrintContents(&batch));
 
   TestHandler handler;
@@ -768,7 +762,6 @@ TEST_F(WriteBatchTest, ColumnFamiliesBatchWithIndexTest) {
 TEST_F(WriteBatchTest, SavePointTest) {
   Status s;
   WriteBatch batch;
-  WriteBatchInternal::SetSequence(&batch, 1);
   batch.SetSavePoint();
 
   batch.Put("A", "a");
@@ -782,17 +775,17 @@ TEST_F(WriteBatchTest, SavePointTest) {
 
   ASSERT_OK(batch.RollbackToSavePoint());
   ASSERT_EQ(
-      "Delete(A)@4"
-      "Put(A, a)@1"
-      "Put(B, b)@2"
-      "Put(C, c)@3",
+      "Delete(A)@3"
+      "Put(A, a)@0"
+      "Put(B, b)@1"
+      "Put(C, c)@2",
       PrintContents(&batch));
 
   ASSERT_OK(batch.RollbackToSavePoint());
   ASSERT_OK(batch.RollbackToSavePoint());
   ASSERT_EQ(
-      "Put(A, a)@1"
-      "Put(B, b)@2",
+      "Put(A, a)@0"
+      "Put(B, b)@1",
       PrintContents(&batch));
 
   batch.Delete("A");
@@ -814,8 +807,8 @@ TEST_F(WriteBatchTest, SavePointTest) {
 
   ASSERT_OK(batch.RollbackToSavePoint());
   ASSERT_EQ(
-      "Delete(A)@2"
-      "Put(D, d)@1",
+      "Delete(A)@1"
+      "Put(D, d)@0",
       PrintContents(&batch));
 
   batch.SetSavePoint();
@@ -825,19 +818,18 @@ TEST_F(WriteBatchTest, SavePointTest) {
 
   ASSERT_OK(batch.RollbackToSavePoint());
   ASSERT_EQ(
-      "Delete(A)@2"
-      "Put(D, d)@1",
+      "Delete(A)@1"
+      "Put(D, d)@0",
       PrintContents(&batch));
 
   s = batch.RollbackToSavePoint();
   ASSERT_TRUE(s.IsNotFound());
   ASSERT_EQ(
-      "Delete(A)@2"
-      "Put(D, d)@1",
+      "Delete(A)@1"
+      "Put(D, d)@0",
       PrintContents(&batch));
 
   WriteBatch batch2;
-  WriteBatchInternal::SetSequence(&batch2, 1);
 
   s = batch2.RollbackToSavePoint();
   ASSERT_TRUE(s.IsNotFound());
@@ -848,21 +840,20 @@ TEST_F(WriteBatchTest, SavePointTest) {
 
   s = batch2.RollbackToSavePoint();
   ASSERT_OK(s);
-  ASSERT_EQ("Delete(A)@1", PrintContents(&batch2));
+  ASSERT_EQ("Delete(A)@0", PrintContents(&batch2));
 
   batch2.Clear();
-  WriteBatchInternal::SetSequence(&batch2, 1);
   ASSERT_EQ("", PrintContents(&batch2));
 
   batch2.SetSavePoint();
 
   batch2.Delete("B");
-  ASSERT_EQ("Delete(B)@1", PrintContents(&batch2));
+  ASSERT_EQ("Delete(B)@0", PrintContents(&batch2));
 
   batch2.SetSavePoint();
   s = batch2.RollbackToSavePoint();
   ASSERT_OK(s);
-  ASSERT_EQ("Delete(B)@1", PrintContents(&batch2));
+  ASSERT_EQ("Delete(B)@0", PrintContents(&batch2));
 
   s = batch2.RollbackToSavePoint();
   ASSERT_OK(s);
@@ -873,7 +864,6 @@ TEST_F(WriteBatchTest, SavePointTest) {
   ASSERT_EQ("", PrintContents(&batch2));
 
   WriteBatch batch3;
-  WriteBatchInternal::SetSequence(&batch3, 1);
 
   s = batch3.PopSavePoint();
   ASSERT_TRUE(s.IsNotFound());
@@ -884,7 +874,7 @@ TEST_F(WriteBatchTest, SavePointTest) {
 
   s = batch3.PopSavePoint();
   ASSERT_OK(s);
-  ASSERT_EQ("Delete(A)@1", PrintContents(&batch3));
+  ASSERT_EQ("Delete(A)@0", PrintContents(&batch3));
 }
 
 TEST_F(WriteBatchTest, MemoryLimitTest) {

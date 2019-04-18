@@ -196,7 +196,7 @@ TEST_F(DBTest, MemEnvTest) {
 }
 #endif  // ROCKSDB_LITE
 
-TEST_F(DBTest, DISABLED_WriteEmptyBatch) {                    // PEGASUS: empty batch is not allowed in pegasus
+TEST_F(DBTest, WriteEmptyBatch) {
   Options options = CurrentOptions();
   options.env = env_;
   options.write_buffer_size = 100000;
@@ -301,7 +301,7 @@ TEST_F(DBTest, PutSingleDeleteGet) {
     // universal compaction do not apply to the test case. Skip MergePut
     // because single delete does not get removed when it encounters a merge.
   } while (ChangeOptions(kSkipHashCuckoo | kSkipFIFOCompaction |
-                         kSkipUniversalCompaction | kSkipMergePut | kSkipPipelinedWrite));
+                         kSkipUniversalCompaction | kSkipMergePut));
 }
 
 TEST_F(DBTest, ReadFromPersistedTier) {
@@ -414,7 +414,7 @@ TEST_F(DBTest, ReadFromPersistedTier) {
         DestroyAndReopen(options);
       }
     }
-  } while (ChangeOptions(kSkipHashCuckoo | kSkipPipelinedWrite));
+  } while (ChangeOptions(kSkipHashCuckoo));
 }
 
 TEST_F(DBTest, SingleDeleteFlush) {
@@ -454,7 +454,7 @@ TEST_F(DBTest, SingleDeleteFlush) {
     // universal compaction do not apply to the test case. Skip MergePut
     // because merges cannot be combined with single deletions.
   } while (ChangeOptions(kSkipHashCuckoo | kSkipFIFOCompaction |
-                         kSkipUniversalCompaction | kSkipMergePut | kSkipPipelinedWrite));
+                         kSkipUniversalCompaction | kSkipMergePut));
 }
 
 TEST_F(DBTest, SingleDeletePutFlush) {
@@ -477,7 +477,7 @@ TEST_F(DBTest, SingleDeletePutFlush) {
     // universal compaction do not apply to the test case. Skip MergePut
     // because merges cannot be combined with single deletions.
   } while (ChangeOptions(kSkipHashCuckoo | kSkipFIFOCompaction |
-                         kSkipUniversalCompaction | kSkipMergePut | kSkipPipelinedWrite));
+                         kSkipUniversalCompaction | kSkipMergePut));
 }
 
 // Disable because not all platform can run it.
@@ -551,7 +551,7 @@ TEST_F(DBTest, GetFromImmutableLayer) {
     ASSERT_EQ("NOT_FOUND", Get(0, "foo"));
     // Release sync calls
     env_->delay_sstable_sync_.store(false, std::memory_order_release);
-  } while (ChangeOptions(kSkipPipelinedWrite));
+  } while (ChangeOptions());
 }
 
 
@@ -568,7 +568,7 @@ TEST_F(DBTest, GetLevel0Ordering) {
     ASSERT_OK(Put(1, "foo", "v2"));
     ASSERT_OK(Flush(1));
     ASSERT_EQ("v2", Get(1, "foo"));
-  } while (ChangeOptions(kSkipPipelinedWrite));
+  } while (ChangeOptions());
 }
 
 TEST_F(DBTest, WrongLevel0Config) {
@@ -592,7 +592,7 @@ TEST_F(DBTest, GetOrderedByLevels) {
     ASSERT_EQ("v2", Get(1, "foo"));
     ASSERT_OK(Flush(1));
     ASSERT_EQ("v2", Get(1, "foo"));
-  } while (ChangeOptions(kSkipPipelinedWrite));
+  } while (ChangeOptions());
 }
 
 TEST_F(DBTest, GetPicksCorrectFile) {
@@ -608,7 +608,7 @@ TEST_F(DBTest, GetPicksCorrectFile) {
     ASSERT_EQ("va", Get(1, "a"));
     ASSERT_EQ("vf", Get(1, "f"));
     ASSERT_EQ("vx", Get(1, "x"));
-  } while (ChangeOptions(kSkipPipelinedWrite));
+  } while (ChangeOptions());
 }
 
 TEST_F(DBTest, GetEncountersEmptyLevel) {
@@ -650,7 +650,7 @@ TEST_F(DBTest, GetEncountersEmptyLevel) {
     dbfull()->TEST_WaitForCompact();
 
     ASSERT_EQ(NumTableFilesAtLevel(0, 1), 1);  // XXX
-  } while (ChangeOptions(kSkipUniversalCompaction | kSkipFIFOCompaction | kSkipPipelinedWrite));
+  } while (ChangeOptions(kSkipUniversalCompaction | kSkipFIFOCompaction));
 }
 #endif  // ROCKSDB_LITE
 
@@ -683,7 +683,7 @@ TEST_F(DBTest, FlushSchedule) {
   options.max_write_buffer_number = 2;
   options.write_buffer_size = 120 * 1024;
   CreateAndReopenWithCF({"pikachu"}, options);
-  //std::vector<port::Thread> threads;
+  std::vector<port::Thread> threads;
 
   std::atomic<int> thread_num(0);
   // each column family will have 5 thread, each thread generating 2 memtables.
@@ -699,12 +699,12 @@ TEST_F(DBTest, FlushSchedule) {
   };
 
   for (int i = 0; i < 10; ++i) {
-    fill_memtable_func();
+    threads.emplace_back(fill_memtable_func);
   }
 
-//  for (auto& t : threads) {                 // PEGASUS: multithread is not supported
-//    t.join();
-//  }
+  for (auto& t : threads) {
+    t.join();
+  }
 
   auto default_tables = GetNumberOfSstFilesForColumnFamily(db_, "default");
   auto pikachu_tables = GetNumberOfSstFilesForColumnFamily(db_, "pikachu");
@@ -1242,7 +1242,7 @@ TEST_F(DBTest, ApproximateSizes) {
     }
     // ApproximateOffsetOf() is not yet implemented in plain table format.
   } while (ChangeOptions(kSkipUniversalCompaction | kSkipFIFOCompaction |
-                         kSkipPlainTable | kSkipHashIndex | kSkipPipelinedWrite));
+                         kSkipPlainTable | kSkipHashIndex));
 }
 
 TEST_F(DBTest, ApproximateSizes_MixOfSmallAndLarge) {
@@ -1281,7 +1281,7 @@ TEST_F(DBTest, ApproximateSizes_MixOfSmallAndLarge) {
       dbfull()->TEST_CompactRange(0, nullptr, nullptr, handles_[1]);
     }
     // ApproximateOffsetOf() is not yet implemented in plain table format.
-  } while (ChangeOptions(kSkipPlainTable | kSkipPipelinedWrite));
+  } while (ChangeOptions(kSkipPlainTable));
 }
 #endif  // ROCKSDB_LITE
 
@@ -1347,7 +1347,7 @@ TEST_F(DBTest, Snapshot) {
     ASSERT_EQ(0U, GetNumSnapshots());
     ASSERT_EQ("0v4", Get(0, "foo"));
     ASSERT_EQ("1v4", Get(1, "foo"));
-  } while (ChangeOptions(kSkipHashCuckoo | kSkipPipelinedWrite));
+  } while (ChangeOptions(kSkipHashCuckoo));
 }
 
 TEST_F(DBTest, HiddenValuesAreRemoved) {
@@ -1386,7 +1386,7 @@ TEST_F(DBTest, HiddenValuesAreRemoved) {
     // which is used by Size().
     // skip HashCuckooRep as it does not support snapshot
   } while (ChangeOptions(kSkipUniversalCompaction | kSkipFIFOCompaction |
-                         kSkipPlainTable | kSkipHashCuckoo | kSkipPipelinedWrite));
+                         kSkipPlainTable | kSkipHashCuckoo));
 }
 #endif  // ROCKSDB_LITE
 
@@ -1436,7 +1436,7 @@ TEST_F(DBTest, UnremovableSingleDelete) {
     // universal compaction do not apply to the test case.  Skip MergePut
     // because single delete does not get removed when it encounters a merge.
   } while (ChangeOptions(kSkipHashCuckoo | kSkipFIFOCompaction |
-                         kSkipUniversalCompaction | kSkipMergePut | kSkipPipelinedWrite));
+                         kSkipUniversalCompaction | kSkipMergePut));
 }
 
 #ifndef ROCKSDB_LITE
@@ -1547,7 +1547,7 @@ TEST_F(DBTest, OverlapInLevel0) {
     Flush(1);
     ASSERT_EQ("3", FilesPerLevel(1));
     ASSERT_EQ("NOT_FOUND", Get(1, "600"));
-  } while (ChangeOptions(kSkipUniversalCompaction | kSkipFIFOCompaction | kSkipPipelinedWrite));
+  } while (ChangeOptions(kSkipUniversalCompaction | kSkipFIFOCompaction));
 }
 #endif  // ROCKSDB_LITE
 
@@ -1748,20 +1748,20 @@ TEST_F(DBTest, SnapshotFiles) {
   do {
     Options options = CurrentOptions();
     options.write_buffer_size = 100000000;  // Large write buffer
-    Reopen(options);
+    CreateAndReopenWithCF({"pikachu"}, options);
 
     Random rnd(301);
 
     // Write 8MB (80 values, each 100K)
-    ASSERT_EQ(NumTableFilesAtLevel(0, 0), 0);
+    ASSERT_EQ(NumTableFilesAtLevel(0, 1), 0);
     std::vector<std::string> values;
     for (int i = 0; i < 80; i++) {
       values.push_back(RandomString(&rnd, 100000));
-      ASSERT_OK(Put(0, Key(i), values[i]));
+      ASSERT_OK(Put((i < 40), Key(i), values[i]));
     }
 
     // assert that nothing makes it to disk yet.
-    ASSERT_EQ(NumTableFilesAtLevel(0, 0), 0);
+    ASSERT_EQ(NumTableFilesAtLevel(0, 1), 0);
 
     // get a file snapshot
     uint64_t manifest_number = 0;
@@ -1771,7 +1771,7 @@ TEST_F(DBTest, SnapshotFiles) {
     dbfull()->GetLiveFiles(files, &manifest_size);
 
     // CURRENT, MANIFEST, OPTIONS, *.sst files (one for each CF)
-    ASSERT_EQ(files.size(), 4U);
+    ASSERT_EQ(files.size(), 5U);
 
     uint64_t number = 0;
     FileType type;
@@ -1816,6 +1816,7 @@ TEST_F(DBTest, SnapshotFiles) {
     // verify that data in the snapshot are correct
     std::vector<ColumnFamilyDescriptor> column_families;
     column_families.emplace_back("default", ColumnFamilyOptions());
+    column_families.emplace_back("pikachu", ColumnFamilyOptions());
     std::vector<ColumnFamilyHandle*> cf_handles;
     DB* snapdb;
     DBOptions opts;
@@ -1828,7 +1829,7 @@ TEST_F(DBTest, SnapshotFiles) {
     ReadOptions roptions;
     std::string val;
     for (unsigned int i = 0; i < 80; i++) {
-      stat = snapdb->Get(roptions, cf_handles[0], Key(i), &val);
+      stat = snapdb->Get(roptions, cf_handles[i < 40], Key(i), &val);
       ASSERT_EQ(values[i].compare(val), 0);
     }
     for (auto cfh : cf_handles) {
@@ -2028,7 +2029,7 @@ static void MTThreadBody(void* arg) {
 
 }  // namespace
 
-class DISABLED_MultiThreadedDBTest : public DBTest,
+class MultiThreadedDBTest : public DBTest,
                             public ::testing::WithParamInterface<int> {
  public:
   virtual void SetUp() override { option_config_ = GetParam(); }
@@ -2045,7 +2046,7 @@ class DISABLED_MultiThreadedDBTest : public DBTest,
   }
 };
 
-TEST_P(DISABLED_MultiThreadedDBTest, MultiThreaded) {
+TEST_P(MultiThreadedDBTest, MultiThreaded) {
   anon::OptionsOverride options_override;
   options_override.skip_policy = kSkipNoSnapshot;
   Options options = CurrentOptions(options_override);
@@ -2085,8 +2086,8 @@ TEST_P(DISABLED_MultiThreadedDBTest, MultiThreaded) {
 }
 
 INSTANTIATE_TEST_CASE_P(
-    MultiThreaded, DISABLED_MultiThreadedDBTest,
-    ::testing::ValuesIn(DISABLED_MultiThreadedDBTest::GenerateOptionConfigs()));
+    MultiThreaded, MultiThreadedDBTest,
+    ::testing::ValuesIn(MultiThreadedDBTest::GenerateOptionConfigs()));
 #endif  // ROCKSDB_LITE
 
 // Group commit test:
@@ -2116,7 +2117,7 @@ static void GCThreadBody(void* arg) {
 
 }  // namespace
 
-TEST_F(DBTest, DISABLED_GroupCommitTest) {
+TEST_F(DBTest, GroupCommitTest) {
   do {
     Options options = CurrentOptions();
     options.env = env_;
@@ -2125,16 +2126,15 @@ TEST_F(DBTest, DISABLED_GroupCommitTest) {
     Reopen(options);
 
     // Start threads
-    int thread_num = 1;
-    GCThread thread[thread_num];
-    for (int id = 0; id < thread_num; id++) {
+    GCThread thread[kGCNumThreads];
+    for (int id = 0; id < kGCNumThreads; id++) {
       thread[id].id = id;
       thread[id].db = db_;
       thread[id].done = false;
       env_->StartThread(GCThreadBody, &thread[id]);
     }
 
-    for (int id = 0; id < thread_num; id++) {
+    for (int id = 0; id < kGCNumThreads; id++) {
       while (thread[id].done == false) {
         env_->SleepForMicroseconds(100000);
       }
@@ -2144,7 +2144,7 @@ TEST_F(DBTest, DISABLED_GroupCommitTest) {
     ASSERT_GT(TestGetTickerCount(options, WRITE_DONE_BY_OTHER), 0);
 
     std::vector<std::string> expected_db;
-    for (int i = 0; i < thread_num * kGCNumKeys; ++i) {
+    for (int i = 0; i < kGCNumThreads * kGCNumKeys; ++i) {
       expected_db.push_back(ToString(i));
     }
     std::sort(expected_db.begin(), expected_db.end());
@@ -2163,7 +2163,7 @@ TEST_F(DBTest, DISABLED_GroupCommitTest) {
     HistogramData hist_data;
     options.statistics->histogramData(DB_WRITE, &hist_data);
     ASSERT_GT(hist_data.average, 0.0);
-  } while (ChangeOptions(kSkipNoSeekToLast | kSkipPipelinedWrite));
+  } while (ChangeOptions(kSkipNoSeekToLast));
 }
 
 namespace {
@@ -2580,8 +2580,7 @@ class DBTestRandomized : public DBTest,
     for (int option_config = kDefault; option_config < kEnd; ++option_config) {
       if (!ShouldSkipOptions(option_config, kSkipDeletesFilterFirst |
                                                 kSkipNoSeekToLast |
-                                                kSkipHashCuckoo |
-                                                kSkipPipelinedWrite)) {
+                                                kSkipHashCuckoo)) {
         option_configs.push_back(option_config);
       }
     }
@@ -2643,9 +2642,9 @@ TEST_P(DBTestRandomized, Randomized) {
         } else {
           b.Delete(k);
         }
-        ASSERT_OK(model.Write(WriteOptions(), &b));
-        ASSERT_OK(db_->Write(WriteOptions(), &b));
       }
+      ASSERT_OK(model.Write(WriteOptions(), &b));
+      ASSERT_OK(db_->Write(WriteOptions(), &b));
     }
 
     if ((step % 100) == 0) {
@@ -4407,7 +4406,7 @@ TEST_F(DBTest, FileCreationRandomFailure) {
     for (int k = 0; k < kTestSize; ++k) {
       // here we expect some of the Put fails.
       std::string value = RandomString(&rnd, 100);
-      Status s = Put(Key(k), Slice(value), WriteOptions(), false);
+      Status s = Put(Key(k), Slice(value));
       if (s.ok()) {
         // update the latest successful put
         values[k] = value;
@@ -4646,7 +4645,7 @@ TEST_F(DBTest, CloseSpeedup) {
   // First three 110KB files are not going to level 2
   // After that, (100K, 200K)
   for (int num = 0; num < 5; num++) {
-    GenerateNewFile(&rnd, &key_idx, true, false);
+    GenerateNewFile(&rnd, &key_idx, true);
   }
 
   ASSERT_EQ(0, GetSstFileCount(dbname_));

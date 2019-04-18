@@ -499,7 +499,7 @@ TEST_F(DBCompactionTest, DisableStatsUpdateReopen) {
     std::vector<std::string> values;
     for (int k = 0; k < kTestSize; ++k) {
       values.push_back(RandomString(&rnd, kCDTValueSize));
-      ASSERT_OK(Put(Key(k), values[k], WriteOptions(), false));
+      ASSERT_OK(Put(Key(k), values[k]));
     }
     dbfull()->TEST_WaitForFlushMemTable();
     dbfull()->TEST_WaitForCompact();
@@ -716,21 +716,21 @@ TEST_F(DBCompactionTest, MinorCompactionsHappen) {
 
     const int N = 500;
 
-    int starting_num_tables = TotalTableFiles(0);
+    int starting_num_tables = TotalTableFiles(1);
     for (int i = 0; i < N; i++) {
-      ASSERT_OK(Put(Key(i), Key(i) + std::string(1000, 'v')));
+      ASSERT_OK(Put(1, Key(i), Key(i) + std::string(1000, 'v')));
     }
-    int ending_num_tables = TotalTableFiles(0);
+    int ending_num_tables = TotalTableFiles(1);
     ASSERT_GT(ending_num_tables, starting_num_tables);
 
     for (int i = 0; i < N; i++) {
-      ASSERT_EQ(Key(i) + std::string(1000, 'v'), Get(Key(i)));
+      ASSERT_EQ(Key(i) + std::string(1000, 'v'), Get(1, Key(i)));
     }
 
     ReopenWithColumnFamilies({"default", "pikachu"}, options);
 
     for (int i = 0; i < N; i++) {
-      ASSERT_EQ(Key(i) + std::string(1000, 'v'), Get(Key(i)));
+      ASSERT_EQ(Key(i) + std::string(1000, 'v'), Get(1, Key(i)));
     }
   } while (ChangeCompactOptions());
 }
@@ -909,7 +909,7 @@ TEST_F(DBCompactionTest, RecoverDuringMemtableCompaction) {
     ASSERT_EQ("v2", Get(1, "bar"));
     ASSERT_EQ(std::string(10000000, 'x'), Get(1, "big1"));
     ASSERT_EQ(std::string(1000, 'y'), Get(1, "big2"));
-  } while (ChangeOptions(kSkipPipelinedWrite));
+  } while (ChangeOptions());
 }
 
 TEST_P(DBCompactionTestWithParam, TrivialMoveOneFile) {
@@ -1887,15 +1887,15 @@ TEST_P(DBCompactionTestWithParam, ConvertCompactionStyle) {
 
   for (int i = 0; i <= max_key_level_insert; i++) {
     // each value is 10K
-    ASSERT_OK(Put(Key(i), RandomString(&rnd, 10000)));
+    ASSERT_OK(Put(1, Key(i), RandomString(&rnd, 10000)));
   }
-  ASSERT_OK(Flush());
+  ASSERT_OK(Flush(1));
   dbfull()->TEST_WaitForCompact();
 
-  ASSERT_GT(TotalTableFiles(0, 4), 1);
+  ASSERT_GT(TotalTableFiles(1, 4), 1);
   int non_level0_num_files = 0;
   for (int i = 1; i < options.num_levels; i++) {
-    non_level0_num_files += NumTableFilesAtLevel(i, 0);
+    non_level0_num_files += NumTableFilesAtLevel(i, 1);
   }
   ASSERT_GT(non_level0_num_files, 0);
 
@@ -1924,10 +1924,10 @@ TEST_P(DBCompactionTestWithParam, ConvertCompactionStyle) {
   compact_options.bottommost_level_compaction =
       BottommostLevelCompaction::kForce;
   compact_options.exclusive_manual_compaction = exclusive_manual_compaction_;
-  dbfull()->CompactRange(compact_options, handles_[0], nullptr, nullptr);
+  dbfull()->CompactRange(compact_options, handles_[1], nullptr, nullptr);
 
   // Only 1 file in L0
-  ASSERT_EQ("1", FilesPerLevel(0));
+  ASSERT_EQ("1", FilesPerLevel(1));
 
   // Stage 4: re-open in universal compaction style and do some db operations
   options = CurrentOptions();
@@ -1943,20 +1943,20 @@ TEST_P(DBCompactionTestWithParam, ConvertCompactionStyle) {
   ReopenWithColumnFamilies({"default", "pikachu"}, options);
 
   for (int i = max_key_level_insert / 2; i <= max_key_universal_insert; i++) {
-    ASSERT_OK(Put(Key(i), RandomString(&rnd, 10000)));
+    ASSERT_OK(Put(1, Key(i), RandomString(&rnd, 10000)));
   }
   dbfull()->Flush(FlushOptions());
   ASSERT_OK(Flush(1));
   dbfull()->TEST_WaitForCompact();
 
   for (int i = 1; i < options.num_levels; i++) {
-    ASSERT_EQ(NumTableFilesAtLevel(i, 0), 0);
+    ASSERT_EQ(NumTableFilesAtLevel(i, 1), 0);
   }
 
   // verify keys inserted in both level compaction style and universal
   // compaction style
   std::string keys_in_db;
-  Iterator* iter = dbfull()->NewIterator(ReadOptions(), handles_[0]);
+  Iterator* iter = dbfull()->NewIterator(ReadOptions(), handles_[1]);
   for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
     keys_in_db.append(iter->key().ToString());
     keys_in_db.push_back(',');
@@ -1975,19 +1975,19 @@ TEST_P(DBCompactionTestWithParam, ConvertCompactionStyle) {
 TEST_F(DBCompactionTest, L0_CompactionBug_Issue44_a) {
   do {
     CreateAndReopenWithCF({"pikachu"}, CurrentOptions());
-    ASSERT_OK(Put("b", "v"));
+    ASSERT_OK(Put(1, "b", "v"));
     ReopenWithColumnFamilies({"default", "pikachu"}, CurrentOptions());
-    ASSERT_OK(Delete("b"));
-    ASSERT_OK(Delete("a"));
+    ASSERT_OK(Delete(1, "b"));
+    ASSERT_OK(Delete(1, "a"));
     ReopenWithColumnFamilies({"default", "pikachu"}, CurrentOptions());
-    ASSERT_OK(Delete("a"));
+    ASSERT_OK(Delete(1, "a"));
     ReopenWithColumnFamilies({"default", "pikachu"}, CurrentOptions());
-    ASSERT_OK(Put("a", "v"));
+    ASSERT_OK(Put(1, "a", "v"));
     ReopenWithColumnFamilies({"default", "pikachu"}, CurrentOptions());
     ReopenWithColumnFamilies({"default", "pikachu"}, CurrentOptions());
-    ASSERT_EQ("(a->v)", Contents());
+    ASSERT_EQ("(a->v)", Contents(1));
     env_->SleepForMicroseconds(1000000);  // Wait for compaction to finish
-    ASSERT_EQ("(a->v)", Contents());
+    ASSERT_EQ("(a->v)", Contents(1));
   } while (ChangeCompactOptions());
 }
 
