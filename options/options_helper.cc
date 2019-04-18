@@ -125,6 +125,8 @@ DBOptions BuildDBOptions(const ImmutableDBOptions& immutable_db_options,
       immutable_db_options.preserve_deletes;
   options.pegasus_data =
       immutable_db_options.pegasus_data;
+  options.pegasus_data_version =
+      immutable_db_options.pegasus_data_version;
 
   return options;
 }

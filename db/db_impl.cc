@@ -764,11 +764,11 @@ uint64_t DBImpl::GetLastFlushedDecree() {
   return d;
 }
 
-uint32_t DBImpl::GetValueSchemaVersion() {
-    mutex_.Lock();
-    uint32_t version = versions_->GetColumnFamilySet()->GetValueSchemaVersion();
-    mutex_.Unlock();
-    return version;
+uint32_t DBImpl::GetPegasusDataVersion() const {
+  mutex_.Lock();
+  uint32_t version = versions_->GetColumnFamilySet()->GetPegasusDataVersion();
+  mutex_.Unlock();
+  return version;
 }
 
 uint64_t DBImpl::GetLastManualCompactFinishTime() {

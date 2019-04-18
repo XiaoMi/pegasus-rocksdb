@@ -926,9 +926,9 @@ struct DBOptions {
   // Default: false
   bool pegasus_data = false;
 
-  // Default value schema version.
+  // Pegasus data version.
   // Default: 0
-  uint32_t default_value_schema_version = 0;
+  uint32_t pegasus_data_version = 0;
 };
 
 // Options to control the behavior of a database (passed to DB::Open)

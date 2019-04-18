@@ -283,6 +283,7 @@ void RandomInitDBOptions(DBOptions* db_opt, Random* rnd) {
 
   // uint32_t options
   db_opt->max_subcompactions = rnd->Uniform(100000);
+  db_opt->pegasus_data_version = rnd->Uniform(100000);
 
   // uint64_t options
   static const uint64_t uint_max = static_cast<uint64_t>(UINT_MAX);

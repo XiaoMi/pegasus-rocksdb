@@ -233,7 +233,7 @@ class DBImpl : public DB {
 
   virtual uint64_t GetLastFlushedDecree() override;
 
-  virtual uint32_t GetValueSchemaVersion() override;
+  virtual uint32_t GetPegasusDataVersion() const override;
 
   virtual uint64_t GetLastManualCompactFinishTime() override;
 
