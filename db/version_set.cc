@@ -3084,9 +3084,6 @@ Status VersionSet::Recover(
     } else if (!have_value_schema_version) {
       if (db_options_->pegasus_data) {
         s = Status::Corruption("no value_schema_version entry in descriptor");
-      } else {
-        ROCKS_LOG_WARN(db_options_->info_log,
-                       "no value_schema_version entry in descriptor");
       }
     } else if (!have_last_manual_compact_finish_time) {
       ROCKS_LOG_WARN(db_options_->info_log,
