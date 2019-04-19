@@ -45,9 +45,10 @@ namespace rocksdb {
 
 SstFileReader::SstFileReader(const std::string& file_path,
                              bool verify_checksum,
-                             bool output_hex)
+                             bool output_hex,
+                             Options options)
     :file_name_(file_path), read_num_(0), verify_checksum_(verify_checksum),
-    ioptions_(options_),
+    output_hex_(output_hex), options_(std::move(options)), ioptions_(options_),
     internal_comparator_(BytewiseComparator()) {
   fprintf(stdout, "Process %s\n", file_path.c_str());
   init_result_ = GetTableReader(file_name_);
@@ -405,16 +406,22 @@ Status SstFileReader::ReadSequential(bool print_kv, uint64_t read_num,
     }
 
     if (print_kv) {
-      if (ikey.user_key.size() >= 2) {
-        uint32_t expire_ts = 0;
-        std::string hash_key, sort_key, user_data;
-        pegasus_restore_key(ikey.user_key, hash_key, sort_key);
-        pegasus_restore_value(value, expire_ts, user_data);
-        std::ostringstream oss;
-        oss << "\"" << escape_string(hash_key) << "\" : \"" << escape_string(sort_key)
-            << "\" @ " << ikey.sequence << " : " << ikey.type << " => "
-            << expire_ts << " : \"" << escape_string(user_data) << "\"";
-        fprintf(stdout, "%s\n", oss.str().c_str());
+      if (!options_.pegasus_data) {
+        fprintf(stdout, "%s => %s\n",
+            ikey.DebugString(output_hex_).c_str(),
+            value.ToString(output_hex_).c_str());
+      } else {
+        if (ikey.user_key.size() >= 2) {
+          uint32_t expire_ts = 0;
+          std::string hash_key, sort_key, user_data;
+          pegasus_restore_key(ikey.user_key, hash_key, sort_key);
+          pegasus_restore_value(value, expire_ts, user_data);
+          std::ostringstream oss;
+          oss << "\"" << escape_string(hash_key) << "\" : \"" << escape_string(sort_key)
+              << "\" @ " << ikey.sequence << " : " << ikey.type << " => "
+              << expire_ts << " : \"" << escape_string(user_data) << "\"";
+          fprintf(stdout, "%s\n", oss.str().c_str());
+        }
       }
     }
   }
@@ -454,6 +461,9 @@ void print_help() {
 
     --output_hex
       Can be combined with scan command to print the keys and values in Hex
+
+    --pegasus_data
+      Whether to read Pegasus data.
 
     --from=<user_key>
       Key to start reading from when executing check|scan
@@ -504,6 +514,7 @@ int SSTDumpTool::Run(int argc, char** argv) {
   uint64_t n;
   bool verify_checksum = false;
   bool output_hex = false;
+  bool pegasus_data = false;
   bool input_key_hex = false;
   bool has_from = false;
   bool has_to = false;
@@ -526,6 +537,8 @@ int SSTDumpTool::Run(int argc, char** argv) {
       dir_or_file = argv[i] + 7;
     } else if (strcmp(argv[i], "--output_hex") == 0) {
       output_hex = true;
+    } else if (strcmp(argv[i], "--pegasus_data") == 0) {
+      pegasus_data = true;
     } else if (strcmp(argv[i], "--input_key_hex") == 0) {
       input_key_hex = true;
     } else if (sscanf(argv[i],
@@ -648,8 +661,10 @@ int SSTDumpTool::Run(int argc, char** argv) {
       filename = std::string(dir_or_file) + "/" + filename;
     }
 
+    Options options;
+    options.pegasus_data = pegasus_data;
     rocksdb::SstFileReader reader(filename, verify_checksum,
-                                  output_hex);
+                                  output_hex, options);
     if (!reader.getStatus().ok()) {
       fprintf(stderr, "%s: %s\n", filename.c_str(),
               reader.getStatus().ToString().c_str());

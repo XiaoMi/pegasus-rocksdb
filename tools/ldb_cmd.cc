@@ -84,7 +84,7 @@ namespace {
 void DumpWalFile(std::string wal_file, bool print_header, bool print_values,
                  LDBCommandExecuteResult* exec_state);
 
-void DumpSstFile(std::string filename, bool output_hex, bool show_properties);
+void DumpSstFile(std::string filename, bool output_hex, bool show_properties, bool pegasus_data);
 };
 
 LDBCommand* LDBCommand::InitFromCmdLineArgs(
@@ -1283,6 +1283,7 @@ const std::string DBDumperCommand::ARG_COUNT_ONLY = "count_only";
 const std::string DBDumperCommand::ARG_COUNT_DELIM = "count_delim";
 const std::string DBDumperCommand::ARG_STATS = "stats";
 const std::string DBDumperCommand::ARG_TTL_BUCKET = "bucket";
+const std::string DBDumperCommand::ARG_PEGASUS_DATA = "pegasus_data";
 
 DBDumperCommand::DBDumperCommand(
     const std::vector<std::string>& params,
@@ -1293,13 +1294,14 @@ DBDumperCommand::DBDumperCommand(
                      {ARG_TTL, ARG_HEX, ARG_KEY_HEX, ARG_VALUE_HEX, ARG_FROM,
                       ARG_TO, ARG_MAX_KEYS, ARG_COUNT_ONLY, ARG_COUNT_DELIM,
                       ARG_STATS, ARG_TTL_START, ARG_TTL_END, ARG_TTL_BUCKET,
-                      ARG_TIMESTAMP, ARG_PATH})),
+                      ARG_TIMESTAMP, ARG_PATH, ARG_PEGASUS_DATA})),
       null_from_(true),
       null_to_(true),
       max_keys_(-1),
       count_only_(false),
       count_delim_(false),
-      print_stats_(false) {
+      print_stats_(false),
+      pegasus_data_(false) {
   std::map<std::string, std::string>::const_iterator itr =
       options.find(ARG_FROM);
   if (itr != options.end()) {
@@ -1340,6 +1342,7 @@ DBDumperCommand::DBDumperCommand(
 
   print_stats_ = IsFlagPresent(flags, ARG_STATS);
   count_only_ = IsFlagPresent(flags, ARG_COUNT_ONLY);
+  pegasus_data_ = IsFlagPresent(flags, ARG_PEGASUS_DATA);
 
   if (is_key_hex_) {
     if (!null_from_) {
@@ -1373,6 +1376,7 @@ void DBDumperCommand::Help(std::string& ret) {
   ret.append(" [--" + ARG_TTL_START + "=<N>:- is inclusive]");
   ret.append(" [--" + ARG_TTL_END + "=<N>:- is exclusive]");
   ret.append(" [--" + ARG_PATH + "=<path_to_a_file>]");
+  ret.append(" [--" + ARG_PEGASUS_DATA + "]");
   ret.append("\n");
 }
 
@@ -1408,7 +1412,7 @@ void DBDumperCommand::DoCommand() {
                     &exec_state_);
         break;
       case kTableFile:
-        DumpSstFile(path_, is_key_hex_, /* show_properties */ true);
+        DumpSstFile(path_, is_key_hex_, /* show_properties */ true, pegasus_data_);
         break;
       case kDescriptorFile:
         DumpManifestFile(path_, /* verbose_ */ false, is_key_hex_,
@@ -1542,6 +1546,7 @@ void DBDumperCommand::DoDumpCommand() {
       if (is_db_ttl_ && timestamp_) {
         fprintf(stdout, "%s ", ReadableTime(rawtime).c_str());
       }
+      // TODO(laiyingchun): data decoding depends on whether it is Pegasus data.
       std::string str =
           PrintKeyValue(iter->key().ToString(), iter->value().ToString(),
                         is_key_hex_, is_value_hex_);
@@ -2532,6 +2537,7 @@ void DBQuerierCommand::DoCommand() {
 
     const std::string& cmd = tokens[0];
 
+    // TODO(laiyingchun): data encoding/decoding depends on whether it is Pegasus data.
     if (cmd == HELP_CMD) {
       fprintf(stdout,
               "get <key>\n"
@@ -2796,7 +2802,7 @@ void RestoreCommand::DoCommand() {
 
 namespace {
 
-void DumpSstFile(std::string filename, bool output_hex, bool show_properties) {
+void DumpSstFile(std::string filename, bool output_hex, bool show_properties, bool pegasus_data) {
   std::string from_key;
   std::string to_key;
   if (filename.length() <= 4 ||
@@ -2805,7 +2811,9 @@ void DumpSstFile(std::string filename, bool output_hex, bool show_properties) {
     return;
   }
   // no verification
-  rocksdb::SstFileReader reader(filename, false, output_hex);
+  Options options;
+  options.pegasus_data = pegasus_data;
+  rocksdb::SstFileReader reader(filename, false, output_hex, options);
   Status st = reader.ReadSequential(true, std::numeric_limits<uint64_t>::max(), false,  // has_from
                                     from_key, false,  // has_to
                                     to_key);
@@ -2885,7 +2893,7 @@ void DBFileDumperCommand::DoCommand() {
     std::string filename = fileMetadata.db_path + fileMetadata.name;
     std::cout << filename << " level:" << fileMetadata.level << std::endl;
     std::cout << "------------------------------" << std::endl;
-    DumpSstFile(filename, false, true);
+    DumpSstFile(filename, false, true, db_->GetDBOptions().pegasus_data);
     std::cout << std::endl;
   }
   std::cout << std::endl;
