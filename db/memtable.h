@@ -368,7 +368,7 @@ class MemTable {
     return oldest_key_time_.load(std::memory_order_relaxed);
   }
 
-  void GetLastSeqDecree(SequenceNumber* sequence, uint64_t* decree) {
+  void GetLastSeqDecree(SequenceNumber* sequence, uint64_t* decree) const {
     *sequence = last_sequence_;
     *decree = last_decree_;
   }

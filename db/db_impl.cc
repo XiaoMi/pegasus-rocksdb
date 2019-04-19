@@ -751,7 +751,7 @@ SequenceNumber DBImpl::GetLatestSequenceNumber() const {
   return versions_->LastSequence();
 }
 
-uint64_t DBImpl::GetLastFlushedDecree() {
+uint64_t DBImpl::GetLastFlushedDecree() const {
   SequenceNumber seq;
   uint64_t d;
 
@@ -771,11 +771,11 @@ uint32_t DBImpl::GetPegasusDataVersion() const {
   return version;
 }
 
-uint64_t DBImpl::GetLastManualCompactFinishTime() {
-    mutex_.Lock();
-    uint64_t ms = versions_->GetColumnFamilySet()->GetLastManualCompactFinishTime();
-    mutex_.Unlock();
-    return ms;
+uint64_t DBImpl::GetLastManualCompactFinishTime() const {
+  mutex_.Lock();
+  uint64_t ms = versions_->GetColumnFamilySet()->GetLastManualCompactFinishTime();
+  mutex_.Unlock();
+  return ms;
 }
 
 SequenceNumber DBImpl::IncAndFetchSequenceNumber() {
