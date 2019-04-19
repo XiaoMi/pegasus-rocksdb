@@ -283,7 +283,7 @@ Status SstFileReader::SetOldTableOptions() {
   return Status::OK();
 }
 
-static size_t escape_string(const char* src, size_t src_len, char* dest, size_t dest_len) {
+size_t escape_string(const char* src, size_t src_len, char* dest, size_t dest_len) {
   const char* src_end = src + src_len;
   size_t used = 0;
   for (; src < src_end; src++) {
@@ -317,49 +317,46 @@ static size_t escape_string(const char* src, size_t src_len, char* dest, size_t 
   return used;
 }
 
-// T must support data() and length() method.
+// T must support data() and size() method.
 template <class T>
 std::string escape_string(const T& src) {
-  const size_t dest_len = src.length() * 4 + 1; // Maximum possible expansion
+  const size_t dest_len = src.size() * 4 + 1; // Maximum possible expansion
   char* dest = new char[dest_len];
-  const size_t used = escape_string(src.data(), src.length(), dest, dest_len);
+  const size_t used = escape_string(src.data(), src.size(), dest, dest_len);
   std::string s(dest, used);
   delete[] dest;
   return s;
 }
 
-// T must support data() and length() method.
+// T must support data() and size() method.
 template <typename T>
-static void pegasus_restore_key(const T& key, std::string& hash_key, std::string& sort_key) {
-  assert(key.length() >= 2);
+void pegasus_restore_key(const T& key, std::string& hash_key, std::string& sort_key) {
+  assert(key.size() >= 2);
   // hash_key_len is in big endian
   uint16_t hash_key_len = be16toh(*(int16_t*)(key.data()));
   if (hash_key_len > 0) {
-    assert(key.length() >= (size_t)(2 + hash_key_len));
+    assert(key.size() >= (size_t)(2 + hash_key_len));
     hash_key.assign(key.data() + 2, hash_key_len);
-  }
-  else {
+  } else {
     hash_key.clear();
   }
-  if (key.length() > (size_t)(2 + hash_key_len)) {
-    sort_key.assign(key.data() + 2 + hash_key_len, key.length() - 2 - hash_key_len);
-  }
-  else {
+  if (key.size() > (size_t)(2 + hash_key_len)) {
+    sort_key.assign(key.data() + 2 + hash_key_len, key.size() - 2 - hash_key_len);
+  } else {
     sort_key.clear();
   }
 }
 
-// T must support data() and length() method.
+// T must support data() and size() method.
 template <typename T>
 void pegasus_restore_value(const T& value, uint32_t& expire_ts, std::string& user_data) {
-  if (value.length() < 4)
+  if (value.size() < 4)
     return;
   // expire_ts is in big endian
   expire_ts = (uint32_t)be32toh(*(int32_t*)(value.data()));
-  if (value.length() > 4) {
-    user_data.assign(value.data() + 4, value.length() - 4);
-  }
-  else {
+  if (value.size() > 4) {
+    user_data.assign(value.data() + 4, value.size() - 4);
+  } else {
     user_data.clear();
   }
 }
