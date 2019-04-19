@@ -130,11 +130,11 @@ int fromHex(char c) {
 }
 
 Slice::Slice(const SliceParts& parts, std::string* buf) {
-  size_t len = 0;
+  size_t length = 0;
   for (int i = 0; i < parts.num_parts; ++i) {
-    len += parts.parts[i].size();
+    length += parts.parts[i].size();
   }
-  buf->reserve(len);
+  buf->reserve(length);
 
   for (int i = 0; i < parts.num_parts; ++i) {
     buf->append(parts.parts[i].data(), parts.parts[i].size());
