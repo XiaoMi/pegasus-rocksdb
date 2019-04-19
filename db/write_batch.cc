@@ -884,7 +884,6 @@ class MemTableInserter : public WriteBatch::Handler {
 
   SequenceNumber sequence_;
   ColumnFamilyMemTables* const cf_mems_;
-  uint64_t decree_;
   FlushScheduler* const flush_scheduler_;
   const bool ignore_missing_column_families_;
   const uint64_t recovering_log_number_;
@@ -911,6 +910,7 @@ class MemTableInserter : public WriteBatch::Handler {
   bool seq_per_batch_;
   // Whether the memtable write will be done only after the commit
   bool write_after_commit_;
+  uint64_t decree_;
   bool pegasus_data_;
 
   MemPostInfoMap& GetPostMap() {
@@ -929,12 +929,12 @@ class MemTableInserter : public WriteBatch::Handler {
                    bool ignore_missing_column_families,
                    uint64_t recovering_log_number, DB* db,
                    bool concurrent_memtable_writes,
-                   uint64_t decree,
-                   bool* has_valid_writes = nullptr, bool seq_per_batch = false,
+                   bool* has_valid_writes = nullptr,
+                   bool seq_per_batch = false,
+                   uint64_t decree = 0,
                    bool pegasus_data = false)
       : sequence_(_sequence),
         cf_mems_(cf_mems),
-        decree_(decree),
         flush_scheduler_(flush_scheduler),
         ignore_missing_column_families_(ignore_missing_column_families),
         recovering_log_number_(recovering_log_number),
@@ -949,6 +949,7 @@ class MemTableInserter : public WriteBatch::Handler {
         // batch). So seq_per_batch being false indicates write_after_commit
         // approach.
         write_after_commit_(!seq_per_batch),
+        decree_(decree),
         pegasus_data_(pegasus_data) {
     assert(cf_mems_);
   }
@@ -1439,9 +1440,9 @@ Status WriteBatchInternal::InsertInto(
     uint64_t decree, bool pegasus_data) {
   MemTableInserter inserter(sequence, memtables, flush_scheduler,
                             ignore_missing_column_families, recovery_log_number,
-                            db, concurrent_memtable_writes, decree,
+                            db, concurrent_memtable_writes,
                             nullptr /*has_valid_writes*/, seq_per_batch,
-                            pegasus_data);
+                            decree, pegasus_data);
   for (auto w : write_group) {
     if (!w->ShouldWriteToMemtable()) {
       w->sequence = inserter.sequence();
@@ -1463,12 +1464,11 @@ Status WriteBatchInternal::InsertInto(
     WriteThread::Writer* writer, SequenceNumber sequence,
     ColumnFamilyMemTables* memtables, FlushScheduler* flush_scheduler,
     bool ignore_missing_column_families, uint64_t log_number, DB* db,
-    bool concurrent_memtable_writes, bool seq_per_batch,
-    uint64_t decree) {
+    bool concurrent_memtable_writes, bool seq_per_batch) {
   assert(writer->ShouldWriteToMemtable());
   MemTableInserter inserter(sequence, memtables, flush_scheduler,
                             ignore_missing_column_families, log_number, db,
-                            concurrent_memtable_writes, decree,
+                            concurrent_memtable_writes,
                             nullptr /*has_valid_writes*/, seq_per_batch);
   SetSequence(writer->batch, sequence);
   inserter.set_log_number_ref(writer->log_ref);
@@ -1483,11 +1483,10 @@ Status WriteBatchInternal::InsertInto(
     const WriteBatch* batch, ColumnFamilyMemTables* memtables,
     FlushScheduler* flush_scheduler, bool ignore_missing_column_families,
     uint64_t log_number, DB* db, bool concurrent_memtable_writes,
-    SequenceNumber* next_seq, bool* has_valid_writes, bool seq_per_batch,
-    uint64_t decree) {
+    SequenceNumber* next_seq, bool* has_valid_writes, bool seq_per_batch) {
   MemTableInserter inserter(Sequence(batch), memtables, flush_scheduler,
                             ignore_missing_column_families, log_number, db,
-                            concurrent_memtable_writes, decree, has_valid_writes,
+                            concurrent_memtable_writes, has_valid_writes,
                             seq_per_batch);
   Status s = batch->Iterate(&inserter);
   if (next_seq != nullptr) {
