@@ -10,7 +10,6 @@
 
 #include <string>
 #include "rocksdb/status.h"
-#include "rocksdb/types.h"
 
 namespace rocksdb {
 

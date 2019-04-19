@@ -11,7 +11,6 @@
 #include "util/mutexlock.h"
 #include "port/likely.h"
 #include <stdlib.h>
-#include <mutex>
 
 namespace rocksdb {
 
@@ -266,16 +265,8 @@ ThreadLocalPtr::StaticMeta* ThreadLocalPtr::Instance() {
   // destruction order even when the main thread dies before any child threads.
   // However, thread_local is not supported in all compilers that accept -std=c++11
   // (e.g., eg Mac with XCode < 8. XCode 8+ supports thread_local).
-//  static ThreadLocalPtr::StaticMeta* inst = new ThreadLocalPtr::StaticMeta();
-//  return inst;
-
-  static std::once_flag flag;
-  static ThreadLocalPtr::StaticMeta* pinst = nullptr;
-  std::call_once(flag, [&]()
-  {
-    pinst = new ThreadLocalPtr::StaticMeta();
-  });
-  return pinst;
+  static ThreadLocalPtr::StaticMeta* inst = new ThreadLocalPtr::StaticMeta();
+  return inst;
 }
 
 port::Mutex* ThreadLocalPtr::StaticMeta::Mutex() { return &Instance()->mutex_; }
