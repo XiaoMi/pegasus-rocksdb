@@ -45,7 +45,8 @@ namespace rocksdb {
 
 SstFileReader::SstFileReader(const std::string& file_path,
                              bool verify_checksum,
-                             bool output_hex, Options options)
+                             bool output_hex,
+                             Options options)
     :file_name_(file_path), read_num_(0), verify_checksum_(verify_checksum),
     output_hex_(output_hex), options_(std::move(options)), ioptions_(options_),
     internal_comparator_(BytewiseComparator()) {

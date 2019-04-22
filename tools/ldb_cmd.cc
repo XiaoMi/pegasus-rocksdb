@@ -1546,7 +1546,7 @@ void DBDumperCommand::DoDumpCommand() {
       if (is_db_ttl_ && timestamp_) {
         fprintf(stdout, "%s ", ReadableTime(rawtime).c_str());
       }
-      // TODO(laiyingchun): data decoding depends on whether it is pegasus data.
+      // TODO(laiyingchun): data decoding depends on whether it is Pegasus data.
       std::string str =
           PrintKeyValue(iter->key().ToString(), iter->value().ToString(),
                         is_key_hex_, is_value_hex_);
@@ -2537,7 +2537,7 @@ void DBQuerierCommand::DoCommand() {
 
     const std::string& cmd = tokens[0];
 
-    // TODO(laiyingchun): data encoding/decoding depends on whether it is pegasus data.
+    // TODO(laiyingchun): data encoding/decoding depends on whether it is Pegasus data.
     if (cmd == HELP_CMD) {
       fprintf(stdout,
               "get <key>\n"
