@@ -42,6 +42,12 @@ matrix:
     env: TEST_GROUP=2
   - os: osx
     env: TEST_GROUP=3
+  - os: osx
+    env: TEST_GROUP=4
+  - os: osx
+    env: TEST_GROUP=5
+  - os: osx
+    env: TEST_GROUP=6
   - os : osx
     env: JOB_NAME=cmake-mingw
   - os : linux
