@@ -838,6 +838,8 @@ class DBImpl : public DB {
   // Used by WriteImpl to update bg_error_ in case of memtable insert error.
   void MemTableInsertStatusCheck(const Status& memtable_insert_status);
 
+  Status UpdateManualCompactTime(ColumnFamilyHandle* column_family);
+
 #ifndef ROCKSDB_LITE
 
   Status CompactFilesImpl(const CompactionOptions& compact_options,
@@ -849,8 +851,6 @@ class DBImpl : public DB {
   // Wait for current IngestExternalFile() calls to finish.
   // REQUIRES: mutex_ held
   void WaitForIngestFile();
-
-  Status UpdateManualCompactTime(ColumnFamilyHandle* column_family);
 
 #else
   // IngestExternalFile is not supported in ROCKSDB_LITE so this function
