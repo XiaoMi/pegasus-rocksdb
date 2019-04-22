@@ -2377,6 +2377,8 @@ std::string Version::DebugString(bool hex, bool print_stats) const {
       AppendNumberTo(&r, files[i]->fd.GetNumber());
       r.push_back(':');
       AppendNumberTo(&r, files[i]->fd.GetFileSize());
+      // TODO(laiyingchun): Pegasus added code to dump seqnos, maybe we should
+      // commit these code to facebook/rocksdb later.
       r.append("[");
       AppendNumberTo(&r, files[i]->smallest_seqno);
       r.append(" .. ");
