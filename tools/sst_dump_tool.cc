@@ -11,7 +11,6 @@
 #define __STDC_FORMAT_MACROS
 #endif
 
-#include <endian.h>
 #include <inttypes.h>
 #include <iostream>
 #include <map>
@@ -41,6 +40,7 @@
 #include "util/random.h"
 
 #include "port/port.h"
+#include "portable_endian.h"
 
 namespace rocksdb {
 

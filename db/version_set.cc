@@ -3179,13 +3179,13 @@ Status VersionSet::Recover(
         "prev_log_number is %lu,"
         "max_column_family is %u,"
         "pegasus_data_version is %u,"
-        "last_manual_compact_finish_time is %lu\n",
+        "last_manual_compact_finish_time is %llu\n",
         manifest_filename.c_str(), (unsigned long)manifest_file_number_,
         (unsigned long)next_file_number_.load(), (unsigned long)last_sequence_,
         (unsigned long)log_number, (unsigned long)prev_log_number_,
         column_family_set_->GetMaxColumnFamily(),
         column_family_set_->GetPegasusDataVersion(),
-        (unsigned long)column_family_set_->GetLastManualCompactFinishTime());
+        column_family_set_->GetLastManualCompactFinishTime());
 
     if (db_options_->pegasus_data) {
       // For Pegasus, we have disabled WAL, so we need to reset last_sequence to
@@ -3586,7 +3586,7 @@ Status VersionSet::DumpManifest(Options& options, std::string& dscname,
     printf(
         "next_file_number %lu last_sequence %lu last_flush_sequence %lu "
         "last_flush_decree %lu prev_log_number %lu max_column_family %u pegasus_data_version %u "
-        "last_manual_compact_finish_time %lu\n",
+        "last_manual_compact_finish_time %llu\n",
         (unsigned long)next_file_number_.load(), (unsigned long)last_sequence,
         (unsigned long)p.first, (unsigned long)p.second, (unsigned long)previous_log_number,
         column_family_set_->GetMaxColumnFamily(), column_family_set_->GetPegasusDataVersion(),
