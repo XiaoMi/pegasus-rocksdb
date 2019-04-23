@@ -11,6 +11,7 @@
 #define __STDC_FORMAT_MACROS
 #endif
 
+#include <endian.h>
 #include <inttypes.h>
 #include <iostream>
 #include <map>
@@ -334,7 +335,7 @@ template <typename T>
 void pegasus_restore_key(const T& key, std::string& hash_key, std::string& sort_key) {
   assert(key.size() >= 2);
   // hash_key_len is in big endian
-  uint16_t hash_key_len = be16toh(*(int16_t*)(key.data()));
+  uint16_t hash_key_len = be16toh(*(uint16_t*)(key.data()));
   if (hash_key_len > 0) {
     assert(key.size() >= (size_t)(2 + hash_key_len));
     hash_key.assign(key.data() + 2, hash_key_len);

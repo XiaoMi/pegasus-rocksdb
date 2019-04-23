@@ -3185,7 +3185,7 @@ Status VersionSet::Recover(
         (unsigned long)log_number, (unsigned long)prev_log_number_,
         column_family_set_->GetMaxColumnFamily(),
         column_family_set_->GetPegasusDataVersion(),
-        column_family_set_->GetLastManualCompactFinishTime());
+        (unsigned long)column_family_set_->GetLastManualCompactFinishTime());
 
     if (db_options_->pegasus_data) {
       // For Pegasus, we have disabled WAL, so we need to reset last_sequence to
