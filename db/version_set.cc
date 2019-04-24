@@ -3089,7 +3089,7 @@ Status VersionSet::Recover(
         s = Status::Corruption("no pegasus-data-version entry in descriptor");
       }
     } else if (!have_last_manual_compact_finish_time) {
-      ROCKS_LOG_WARN(db_options_->info_log,
+      ROCKS_LOG_INFO(db_options_->info_log,
                      "no last-manual-compact-finish-time entry in descriptor");
     }
 
