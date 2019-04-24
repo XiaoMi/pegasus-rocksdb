@@ -78,10 +78,11 @@ typedef SSIZE_T ssize_t;
 #endif
 
 #if BYTE_ORDER == LITTLE_ENDIAN
-#define be16toh(x) ntohs(x)
+#define be16toh(x) _byteswap_ushort(x)
+#define be32toh(x) _byteswap_ulong(x)
 #elif BYTE_ORDER == BIG_ENDIAN
-/* that would be xbox 360 */
 #define be16toh(x) (x)
+#define be32toh(x) (x)
 #else
 #error byte order not supported
 #endif

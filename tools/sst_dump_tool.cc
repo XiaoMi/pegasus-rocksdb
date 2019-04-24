@@ -354,7 +354,7 @@ void pegasus_restore_value(const T& value, uint32_t& expire_ts, std::string& use
   if (value.size() < 4)
     return;
   // expire_ts is in big endian
-  expire_ts = (uint32_t)be32toh(*(int32_t*)(value.data()));
+  expire_ts = (uint32_t)be32toh(*(uint32_t*)(value.data()));
   if (value.size() > 4) {
     user_data.assign(value.data() + 4, value.size() - 4);
   } else {
