@@ -58,6 +58,7 @@ matrix:
 # https://docs.travis-ci.com/user/caching/#ccache-cache
 install:
   - if [ "${TRAVIS_OS_NAME}" == osx ]; then
+      brew install snappy;
       brew install ccache;
       PATH=$PATH:/usr/local/opt/ccache/libexec;
     fi
