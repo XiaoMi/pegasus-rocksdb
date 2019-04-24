@@ -21,6 +21,7 @@
 #undef PLATFORM_IS_LITTLE_ENDIAN
 #define PLATFORM_IS_LITTLE_ENDIAN true
 
+#include <winsock2.h>
 #include <windows.h>
 #include <string>
 #include <string.h>
@@ -29,7 +30,6 @@
 #include <condition_variable>
 #include <malloc.h>
 #include <intrin.h>
-#include <winsock2.h>
 #include <sys/param.h>
 
 #include <stdint.h>
