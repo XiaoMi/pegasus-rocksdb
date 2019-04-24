@@ -19,12 +19,12 @@ addons:
       packages: ['zlib1g-dev', 'libbz2-dev', 'libsnappy-dev', 'curl', 'libgflags-dev', 'mingw-w64']
 env:
   - TEST_GROUP=platform_dependent # 16-18 minutes
-  - TEST_GROUP=1
-  - TEST_GROUP=2
-  - TEST_GROUP=3
-  - TEST_GROUP=4
-  - TEST_GROUP=5
-  - TEST_GROUP=6
+  #- TEST_GROUP=1
+  #- TEST_GROUP=2
+  #- TEST_GROUP=3
+  #- TEST_GROUP=4
+  #- TEST_GROUP=5
+  #- TEST_GROUP=6
   # Run java tests
   - JOB_NAME=java_test # 4-11 minutes
   # Build ROCKSDB_LITE
@@ -36,18 +36,18 @@ env:
 
 matrix:
   exclude:
-  - os: osx
-    env: TEST_GROUP=1
-  - os: osx
-    env: TEST_GROUP=2
-  - os: osx
-    env: TEST_GROUP=3
-  - os: osx
-    env: TEST_GROUP=4
-  - os: osx
-    env: TEST_GROUP=5
-  - os: osx
-    env: TEST_GROUP=6
+  #  - os: osx
+  #    env: TEST_GROUP=1
+  #  - os: osx
+  #    env: TEST_GROUP=2
+  #  - os: osx
+  #    env: TEST_GROUP=3
+  #  - os: osx
+  #    env: TEST_GROUP=4
+  #  - os: osx
+  #    env: TEST_GROUP=5
+  #  - os: osx
+  #    env: TEST_GROUP=6
   - os : osx
     env: JOB_NAME=cmake-mingw
   - os : linux
