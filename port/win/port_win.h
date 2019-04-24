@@ -21,7 +21,6 @@
 #undef PLATFORM_IS_LITTLE_ENDIAN
 #define PLATFORM_IS_LITTLE_ENDIAN true
 
-#include <winsock2.h>
 #include <windows.h>
 #include <string>
 #include <string.h>
