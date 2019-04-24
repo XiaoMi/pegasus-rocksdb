@@ -29,6 +29,8 @@
 #include <condition_variable>
 #include <malloc.h>
 #include <intrin.h>
+#include <winsock2.h>
+#include <sys/param.h>
 
 #include <stdint.h>
 
@@ -73,6 +75,15 @@ typedef SSIZE_T ssize_t;
 
 #ifndef PLATFORM_IS_LITTLE_ENDIAN
 #define PLATFORM_IS_LITTLE_ENDIAN (__BYTE_ORDER == __LITTLE_ENDIAN)
+#endif
+
+#if BYTE_ORDER == LITTLE_ENDIAN
+#define be16toh(x) ntohs(x)
+#elif BYTE_ORDER == BIG_ENDIAN
+/* that would be xbox 360 */
+#define be16toh(x) (x)
+#else
+#error byte order not supported
 #endif
 
 namespace rocksdb {

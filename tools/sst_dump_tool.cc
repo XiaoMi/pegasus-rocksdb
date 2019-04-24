@@ -40,7 +40,6 @@
 #include "util/random.h"
 
 #include "port/port.h"
-#include "portable_endian.h"
 
 namespace rocksdb {
 
