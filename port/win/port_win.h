@@ -83,8 +83,6 @@ typedef SSIZE_T ssize_t;
 #elif BYTE_ORDER == BIG_ENDIAN
 #define be16toh(x) (x)
 #define be32toh(x) (x)
-#else
-#error byte order not supported
 #endif
 
 namespace rocksdb {
