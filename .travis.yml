@@ -28,7 +28,7 @@ env:
   # Run java tests
   - JOB_NAME=java_test # 4-11 minutes
   # Build ROCKSDB_LITE
-  - JOB_NAME=lite_build # 3-4 minutes
+  #- JOB_NAME=lite_build # 3-4 minutes
   # Build examples
   - JOB_NAME=examples # 5-7 minutes
   - JOB_NAME=cmake # 3-5 minutes
