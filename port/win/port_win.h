@@ -29,7 +29,6 @@
 #include <condition_variable>
 #include <malloc.h>
 #include <intrin.h>
-#include <sys/param.h>
 
 #include <stdint.h>
 
@@ -74,14 +73,6 @@ typedef SSIZE_T ssize_t;
 
 #ifndef PLATFORM_IS_LITTLE_ENDIAN
 #define PLATFORM_IS_LITTLE_ENDIAN (__BYTE_ORDER == __LITTLE_ENDIAN)
-#endif
-
-#if BYTE_ORDER == LITTLE_ENDIAN
-#define be16toh(x) _byteswap_ushort(x)
-#define be32toh(x) _byteswap_ulong(x)
-#elif BYTE_ORDER == BIG_ENDIAN
-#define be16toh(x) (x)
-#define be32toh(x) (x)
 #endif
 
 namespace rocksdb {
