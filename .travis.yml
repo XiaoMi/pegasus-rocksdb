@@ -85,6 +85,6 @@ script:
   - if [ "${JOB_NAME}" == 'cmake-mingw' ]; then mkdir build && cd build && cmake .. -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++ -DCMAKE_SYSTEM_NAME=Windows && make -j4 rocksdb; fi
 notifications:
     email:
-      - leveldb@fb.com
+      - pegasus-help@xiaomi.com
     webhooks:
       - https://buildtimetrend.herokuapp.com/travis
