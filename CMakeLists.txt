@@ -48,7 +48,6 @@ if(CCACHE_FOUND)
   message("use ccache to speed up compilation")
 endif(CCACHE_FOUND)
 
-add_definitions(-DPEGASUS)
 option(WITH_JEMALLOC "build with JeMalloc" OFF)
 if(MSVC)
   include(${CMAKE_CURRENT_SOURCE_DIR}/thirdparty.inc)
@@ -65,7 +64,7 @@ else()
     endif()
   endif()
 
-  option(WITH_SNAPPY "build with SNAPPY" ON)
+  option(WITH_SNAPPY "build with SNAPPY" OFF)
   if(WITH_SNAPPY)
     find_package(snappy REQUIRED)
     add_definitions(-DSNAPPY)
@@ -73,7 +72,7 @@ else()
     list(APPEND THIRDPARTY_LIBS ${SNAPPY_LIBRARIES})
   endif()
 
-  option(WITH_ZLIB "build with zlib" ON)
+  option(WITH_ZLIB "build with zlib" OFF)
   if(WITH_ZLIB)
     find_package(zlib REQUIRED)
     add_definitions(-DZLIB)
@@ -81,7 +80,7 @@ else()
     list(APPEND THIRDPARTY_LIBS ${ZLIB_LIBRARIES})
   endif()
 
-  option(WITH_BZ2 "build with bzip2" ON)
+  option(WITH_BZ2 "build with bzip2" OFF)
   if(WITH_BZ2)
     find_package(bzip2 REQUIRED)
     add_definitions(-DBZIP2)
@@ -137,7 +136,7 @@ if(NOT WIN32)
   string(STRIP "${ROCKSDB_VERSION_MAJOR}" ROCKSDB_VERSION_MAJOR)
 endif()
 
-option(WITH_MD_LIBRARY "build with MD" OFF)
+option(WITH_MD_LIBRARY "build with MD" ON)
 if(WIN32 AND MSVC)
   if(WITH_MD_LIBRARY)
     set(RUNTIME_LIBRARY "MD")
@@ -600,23 +599,23 @@ endif()
 
 set(ROCKSDB_STATIC_LIB rocksdb${ARTIFACT_SUFFIX})
 set(ROCKSDB_SHARED_LIB rocksdb-shared${ARTIFACT_SUFFIX})
-set(ROCKSDB_IMPORT_LIB ${ROCKSDB_STATIC_LIB})
+set(ROCKSDB_IMPORT_LIB ${ROCKSDB_SHARED_LIB})
 if(WIN32)
   set(SYSTEM_LIBS ${SYSTEM_LIBS} Shlwapi.lib Rpcrt4.lib)
   set(LIBS ${ROCKSDB_STATIC_LIB} ${THIRDPARTY_LIBS} ${SYSTEM_LIBS})
 else()
-  set(SYSTEM_LIBS ${CMAKE_THREAD_LIBS_INIT} rt)
-  set(LIBS ${ROCKSDB_STATIC_LIB} ${THIRDPARTY_LIBS} ${SYSTEM_LIBS})
+  set(SYSTEM_LIBS ${CMAKE_THREAD_LIBS_INIT})
+  set(LIBS ${ROCKSDB_SHARED_LIB} ${THIRDPARTY_LIBS} ${SYSTEM_LIBS})
 
-#  add_library(${ROCKSDB_SHARED_LIB} SHARED ${SOURCES})
-#  target_link_libraries(${ROCKSDB_SHARED_LIB}
-#    ${THIRDPARTY_LIBS} ${SYSTEM_LIBS})
-#  set_target_properties(${ROCKSDB_SHARED_LIB} PROPERTIES
-#                        LINKER_LANGUAGE CXX
-#                        VERSION ${ROCKSDB_VERSION}
-#                        SOVERSION ${ROCKSDB_VERSION_MAJOR}
-#                        CXX_STANDARD 11
-#                        OUTPUT_NAME "rocksdb")
+  add_library(${ROCKSDB_SHARED_LIB} SHARED ${SOURCES})
+  target_link_libraries(${ROCKSDB_SHARED_LIB}
+    ${THIRDPARTY_LIBS} ${SYSTEM_LIBS})
+  set_target_properties(${ROCKSDB_SHARED_LIB} PROPERTIES
+                        LINKER_LANGUAGE CXX
+                        VERSION ${ROCKSDB_VERSION}
+                        SOVERSION ${ROCKSDB_VERSION_MAJOR}
+                        CXX_STANDARD 11
+                        OUTPUT_NAME "rocksdb")
 endif()
 
 option(WITH_LIBRADOS "Build with librados" OFF)
@@ -690,14 +689,14 @@ if(NOT WIN32 OR ROCKSDB_INSTALL_ON_WINDOWS)
     INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
   )
 
-#  install(
-#    TARGETS ${ROCKSDB_SHARED_LIB}
-#    EXPORT RocksDBTargets
-#    COMPONENT runtime
-#    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
-#    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-#    INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
-#  )
+  install(
+    TARGETS ${ROCKSDB_SHARED_LIB}
+    EXPORT RocksDBTargets
+    COMPONENT runtime
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+  )
 
   install(
     EXPORT RocksDBTargets
@@ -715,7 +714,7 @@ if(NOT WIN32 OR ROCKSDB_INSTALL_ON_WINDOWS)
   )
 endif()
 
-option(WITH_TESTS "build with tests" OFF)
+option(WITH_TESTS "build with tests" ON)
 if(WITH_TESTS)
   set(TESTS
         cache/cache_test.cc
@@ -853,32 +852,6 @@ if(WITH_TESTS)
         utilities/ttl/ttl_test.cc
         utilities/write_batch_with_index/write_batch_with_index_test.cc
   )
-
-  if(ROCKSDBTESTS_START)
-    foreach(sourcefile ${TESTS})
-      if(${sourcefile} MATCHES ${ROCKSDBTESTS_START})
-        break()
-      endif()
-      list(REMOVE_ITEM TESTS ${sourcefile})
-    endforeach(sourcefile ${TESTS})
-  endif()
-  if(ROCKSDBTESTS_END)
-    set(index 0)
-    foreach(sourcefile ${TESTS})
-      if(${sourcefile} MATCHES ${ROCKSDBTESTS_END})
-        set(len 0)
-        list(LENGTH TESTS len)
-        while(${index} LESS ${len})
-          list(REMOVE_AT TESTS ${index})
-          list(LENGTH TESTS len)
-        endwhile()
-        break()
-      else()
-        math(EXPR index '${index}+1')
-      endif()
-    endforeach(sourcefile ${TESTS})
-  endif()
-
   if(WITH_LIBRADOS)
     list(APPEND TESTS utilities/env_librados_test.cc)
   endif()

@@ -41,6 +41,40 @@
 
 #include "port/port.h"
 
+// TODO(laiyingchun): be16toh and be32toh are only called by
+// pegasus_restore_key and pegasus_restore_value use.
+#if defined(OS_MACOSX)
+  #include <libkern/OSByteOrder.h>
+  #define be16toh(x) OSSwapBigToHostInt16(x)
+  #define be32toh(x) OSSwapBigToHostInt32(x)
+#elif defined(OS_SOLARIS)
+  #include <sys/byteorder.h>
+  #define be16toh(x) BE_16(x)
+  #define be32toh(x) BE_32(x)
+#elif defined(OS_AIX)
+  #define be16toh(x) (x)
+  #define be32toh(x) (x)
+#elif defined(OS_FREEBSD) || defined(OS_OPENBSD) || defined(OS_NETBSD) || \
+    defined(OS_DRAGONFLYBSD) || defined(OS_ANDROID)
+  #if !defined(be16toh)
+  #define be16toh(x) betoh16(x)
+  #endif
+
+  #if !defined(be32toh)
+  #define be32toh(x) betoh32(x)
+  #endif
+#elif defined(OS_WIN)
+  #if BYTE_ORDER == LITTLE_ENDIAN
+  #define be16toh(x) _byteswap_ushort(x)
+  #define be32toh(x) _byteswap_ulong(x)
+  #elif BYTE_ORDER == BIG_ENDIAN
+  #define be16toh(x) (x)
+  #define be32toh(x) (x)
+  #endif
+#else
+  #include <endian.h>
+#endif
+
 namespace rocksdb {
 
 SstFileReader::SstFileReader(const std::string& file_path,
@@ -334,7 +368,7 @@ template <typename T>
 void pegasus_restore_key(const T& key, std::string& hash_key, std::string& sort_key) {
   assert(key.size() >= 2);
   // hash_key_len is in big endian
-  uint16_t hash_key_len = be16toh(*(int16_t*)(key.data()));
+  uint16_t hash_key_len = be16toh(*(uint16_t*)(key.data()));
   if (hash_key_len > 0) {
     assert(key.size() >= (size_t)(2 + hash_key_len));
     hash_key.assign(key.data() + 2, hash_key_len);
@@ -354,7 +388,7 @@ void pegasus_restore_value(const T& value, uint32_t& expire_ts, std::string& use
   if (value.size() < 4)
     return;
   // expire_ts is in big endian
-  expire_ts = (uint32_t)be32toh(*(int32_t*)(value.data()));
+  expire_ts = (uint32_t)be32toh(*(uint32_t*)(value.data()));
   if (value.size() > 4) {
     user_data.assign(value.data() + 4, value.size() - 4);
   } else {
