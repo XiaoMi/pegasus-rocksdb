@@ -5787,6 +5787,49 @@ jboolean Java_org_rocksdb_WriteOptions_noSlowdown(
   return reinterpret_cast<rocksdb::WriteOptions*>(jhandle)->no_slowdown;
 }
 
+/*
+ * Class:     org_rocksdb_WriteOptions
+ * Method:    setLowPri
+ * Signature: (JZ)V
+ */
+void Java_org_rocksdb_WriteOptions_setLowPri(
+    JNIEnv*, jobject, jlong jhandle, jboolean jlow_pri) {
+  reinterpret_cast<rocksdb::WriteOptions*>(jhandle)->low_pri =
+      static_cast<bool>(jlow_pri);
+}
+
+/*
+ * Class:     org_rocksdb_WriteOptions
+ * Method:    lowPri
+ * Signature: (J)Z
+ */
+jboolean Java_org_rocksdb_WriteOptions_lowPri(
+    JNIEnv*, jobject, jlong jhandle) {
+  return reinterpret_cast<rocksdb::WriteOptions*>(jhandle)->low_pri;
+}
+
+/*
+ * Class:     org_rocksdb_WriteOptions
+ * Method:    setGivencegree
+ * Signature: (JZ)V
+ */
+void Java_org_rocksdb_WriteOptions_setGivenDecree(
+    JNIEnv*, jobject, jlong jhandle, jboolean jgiven_decree) {
+  reinterpret_cast<rocksdb::WriteOptions*>(jhandle)->given_decree =
+      static_cast<uint64_t>(jgiven_decree);
+}
+
+/*
+ * Class:     org_rocksdb_WriteOptions
+ * Method:    GivenDecree
+ * Signature: (J)Z
+ */
+jboolean Java_org_rocksdb_WriteOptions_GivenDecree(
+    JNIEnv*, jobject, jlong jhandle) {
+  return reinterpret_cast<rocksdb::WriteOptions*>(jhandle)->given_decree;
+}
+
+
 /////////////////////////////////////////////////////////////////////
 // rocksdb::ReadOptions
 
