@@ -15,8 +15,11 @@
 
 #ifdef USE_HDFS
 #include <hdfs.h>
+#include "util/logging.h"
 
 namespace rocksdb {
+
+static Logger* log = nullptr;
 
 // Thrown during execution when there is an issue with the supplied
 // arguments.
@@ -179,6 +182,7 @@ class HdfsEnv : public Env {
                         // posix threads, etc.
 
   static const std::string kProto;
+  static const std::string lProto;
   static const std::string pathsep;
 
   /**
@@ -190,15 +194,18 @@ class HdfsEnv : public Env {
     if (uri.empty()) {
       return nullptr;
     }
-    if (uri.find(kProto) != 0) {
-      // uri doesn't start with hdfs:// -> use default:0, which is special
-      // to libhdfs.
-      return hdfsConnectNewInstance("default", 0);
-    }
-    const std::string hostport = uri.substr(kProto.length());
 
     std::vector <std::string> parts;
-    split(hostport, ':', parts);
+    if (uri.find(kProto) == 0) {
+      const std::string hostport = uri.substr(kProto.length());
+      split(hostport, ':', parts);
+    } else if (uri.find(lProto) == 0) {
+      ROCKS_LOG_WARN(log, "[hdfs]You now access the fds url:%s", uri.c_str());
+      split(uri, '#', parts);
+    } else {
+      return hdfsConnectNewInstance("default", 0);
+    }
+    
     if (parts.size() != 2) {
       throw HdfsFatalException("Bad uri for hdfs " + uri);
     }
@@ -213,7 +220,7 @@ class HdfsEnv : public Env {
     tPort port;
     port = atoi(portStr.c_str());
     if (port == 0) {
-      throw HdfsFatalException("Bad host-port for hdfs " + uri);
+      throw HdfsFatalException("Bad host-port for hdfs/fds " + uri);
     }
     hdfsFS fs = hdfsConnectNewInstance(host.c_str(), port);
     return fs;
