@@ -17,7 +17,7 @@
 #include <hdfs.h>
 
 namespace rocksdb {
-static Logger* log = nullptr;
+
 // Thrown during execution when there is an issue with the supplied
 // arguments.
 class HdfsUsageException : public std::exception { };
