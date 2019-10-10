@@ -367,8 +367,8 @@ class HdfsLogger : public Logger {
 
 // Finally, the hdfs environment
 
-const std::string HdfsEnv::kProto = "hdfs://";
-const std::string HdfsEnv::lProto = "fds://";
+const std::string HdfsEnv::kHdfsProto = "hdfs://";
+const std::string HdfsEnv::kFdsProto = "fds://";
 const std::string HdfsEnv::pathsep = "/";
 
 // open a file for sequential reading

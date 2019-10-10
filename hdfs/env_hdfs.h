@@ -181,8 +181,8 @@ class HdfsEnv : public Env {
                         // object here so that we can use posix timers,
                         // posix threads, etc.
 
-  static const std::string kProto;
-  static const std::string lProto;
+  static const std::string kHdfsProto;
+  static const std::string kFdsProto;
   static const std::string pathsep;
 
   /**
@@ -196,13 +196,15 @@ class HdfsEnv : public Env {
     }
 
     std::vector <std::string> parts;
-    if (uri.find(kProto) == 0) {
-      const std::string hostport = uri.substr(kProto.length());
+    if (uri.find(kHdfsProto) == 0) {
+      const std::string hostport = uri.substr(kHdfsProto.length());
       split(hostport, ':', parts);
-    } else if (uri.find(lProto) == 0) {
+    } else if (uri.find(kFdsProto) == 0) {
       ROCKS_LOG_WARN(log, "[hdfs]You now access the fds url:%s", uri.c_str());
       split(uri, '#', parts);
     } else {
+      // uri doesn't start with hdfs:// or fds:// -> use default:0, which is special
+      // to libhdfs.
       return hdfsConnectNewInstance("default", 0);
     }
     
