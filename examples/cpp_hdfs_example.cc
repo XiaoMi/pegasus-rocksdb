@@ -45,6 +45,7 @@ int main() {
     batch.Delete("key1");
     batch.Put("key2", value);
     s = db->Write(WriteOptions(), &batch);
+    assert(s.ok());
   }
 
   s = db->Get(ReadOptions(), "key1", &value);

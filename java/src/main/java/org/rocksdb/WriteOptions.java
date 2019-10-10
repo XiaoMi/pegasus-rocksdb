@@ -177,7 +177,7 @@ public class WriteOptions extends RocksObject {
 
   /**
    */
-   public WriteOptions setGivenDecree(final int givenDecree) {
+   public WriteOptions setGivenDecree(final long givenDecree) {
      setGivenDecree(nativeHandle_, givenDecree);
      return this;
    }
@@ -201,7 +201,7 @@ public class WriteOptions extends RocksObject {
   private native boolean noSlowdown(final long handle);
   private native void setLowPri(final long handle, final boolean lowPri);
   private native boolean lowPri(final long handle);
-  private native void setGivenDecree(final long handle, final int givenDecree);
+  private native void setGivenDecree(final long handle, final long givenDecree);
   private native boolean givenDecree(final long handle);
   @Override protected final native void disposeInternal(final long handle);
 }
