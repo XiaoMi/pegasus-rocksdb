@@ -15,12 +15,9 @@
 
 #ifdef USE_HDFS
 #include <hdfs.h>
-#include "util/logging.h"
 
 namespace rocksdb {
-
 static Logger* log = nullptr;
-
 // Thrown during execution when there is an issue with the supplied
 // arguments.
 class HdfsUsageException : public std::exception { };
@@ -200,16 +197,17 @@ class HdfsEnv : public Env {
       const std::string hostport = uri.substr(kHdfsProto.length());
       split(hostport, ':', parts);
     } else if (uri.find(kFdsProto) == 0) {
-      ROCKS_LOG_WARN(log, "[hdfs]You now access the fds url:%s", uri.c_str());
       split(uri, '#', parts);
     } else {
       // uri doesn't start with hdfs:// or fds:// -> use default:0, which is special
       // to libhdfs.
+      fprintf(stderr, "[hdfs]You now access the default hdfs/fds url\n");
       return hdfsConnectNewInstance("default", 0);
     }
-    
+
+    fprintf(stderr, "[hdfs]You now access the hdfs/fds url:%s\n", uri.c_str());}
     if (parts.size() != 2) {
-      throw HdfsFatalException("Bad uri for hdfs " + uri);
+      throw HdfsFatalException("Bad uri for hdfs/fds " + uri);
     }
     // parts[0] = hosts, parts[1] = port/xxx/yyy
     std::string host(parts[0]);
