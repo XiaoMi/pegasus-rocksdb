@@ -183,9 +183,9 @@ class HdfsEnv : public Env {
   static const std::string pathsep;
 
   /**
-   * If the URI is specified of the form hdfs://server:port/path 
-   * or fds://server:port/path then connect to the specified cluster
-   * else connect to default.
+   * If the URI is specified of the form hdfs://server:port/path
+   * or fds://accessId:accessSecret@bucket.endpoint#port then connect
+   * to the specified cluster else connect to default.
    */
   hdfsFS connectToPath(const std::string& uri) {
     if (uri.empty()) {
