@@ -6,8 +6,10 @@
 // This file implements the "bridge" between Java and C++ and enables
 // calling c++ rocksdb::Env methods from Java side.
 
+#include "portal.h"
 #include "include/org_rocksdb_Env.h"
 #include "include/org_rocksdb_RocksEnv.h"
+#include "include/org_rocksdb_HdfsEnv.h"
 #include "include/org_rocksdb_RocksMemEnv.h"
 #include "rocksdb/env.h"
 
@@ -17,7 +19,7 @@
  * Signature: ()J
  */
 jlong Java_org_rocksdb_Env_getDefaultEnvInternal(
-    JNIEnv* env, jclass jclazz) {
+    JNIEnv*, jclass) {
   return reinterpret_cast<jlong>(rocksdb::Env::Default());
 }
 
@@ -75,6 +77,41 @@ jlong Java_org_rocksdb_RocksMemEnv_createMemEnv(
  */
 void Java_org_rocksdb_RocksMemEnv_disposeInternal(
     JNIEnv* env, jobject jobj, jlong jhandle) {
+  auto* e = reinterpret_cast<rocksdb::Env*>(jhandle);
+  assert(e != nullptr);
+  delete e;
+}
+
+/*
+ * Class:     org_rocksdb_HdfsEnv
+ * Method:    createHdfsEnv
+ * Signature: (Ljava/lang/String;)J
+ */
+jlong Java_org_rocksdb_HdfsEnv_createHdfsEnv(
+    JNIEnv* env, jclass, jstring jfsname) {
+  jboolean has_exception = JNI_FALSE;
+  auto fsname = rocksdb::JniUtil::copyStdString(env, jfsname, &has_exception);
+  if (has_exception == JNI_TRUE) {
+    // exception occurred
+    return 0;
+  }
+  rocksdb::Env* hdfs_env;
+  rocksdb::Status s = rocksdb::NewHdfsEnv(&hdfs_env, fsname);
+  if (!s.ok()) {
+    // error occurred
+    rocksdb::RocksDBExceptionJni::ThrowNew(env, s);
+    return 0;
+  }
+  return reinterpret_cast<jlong>(hdfs_env);
+}
+
+/*
+ * Class:     org_rocksdb_HdfsEnv
+ * Method:    disposeInternal
+ * Signature: (J)V
+ */
+void Java_org_rocksdb_HdfsEnv_disposeInternal(
+    JNIEnv*, jobject, jlong jhandle) {
   auto* e = reinterpret_cast<rocksdb::Env*>(jhandle);
   assert(e != nullptr);
   delete e;

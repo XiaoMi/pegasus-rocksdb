@@ -19,6 +19,7 @@
 #include <sstream>
 #include "rocksdb/status.h"
 #include "util/string_util.h"
+#include "util/logging.h"
 
 #define HDFS_EXISTS 0
 #define HDFS_DOESNT_EXIST -1
@@ -293,7 +294,8 @@ class HdfsLogger : public Logger {
     }
   }
 
-  virtual void Logv(const char* format, va_list ap) {
+  using Logger::Logv;
+  void Logv(const char* format, va_list ap) override {
     const uint64_t thread_id = (*gettid_)();
 
     // We try twice: the first time with a fixed-size stack allocated buffer,
@@ -365,7 +367,8 @@ class HdfsLogger : public Logger {
 
 // Finally, the hdfs environment
 
-const std::string HdfsEnv::kProto = "hdfs://";
+const std::string HdfsEnv::kHdfsProto = "hdfs://";
+const std::string HdfsEnv::kFdsProto = "fds://";
 const std::string HdfsEnv::pathsep = "/";
 
 // open a file for sequential reading
@@ -464,10 +467,10 @@ Status HdfsEnv::GetChildren(const std::string& path,
     pHdfsFileInfo = hdfsListDirectory(fileSys_, path.c_str(), &numEntries);
     if (numEntries >= 0) {
       for(int i = 0; i < numEntries; i++) {
-        char* pathname = pHdfsFileInfo[i].mName;
-        char* filename = std::rindex(pathname, '/');
-        if (filename != nullptr) {
-          result->push_back(filename+1);
+       std::string pathname(pHdfsFileInfo[i].mName);
+        size_t pos = pathname.rfind("/");
+        if (std::string::npos != pos) {
+          result->push_back(pathname.substr(pos + 1));
         }
       }
       if (pHdfsFileInfo != nullptr) {

@@ -178,29 +178,36 @@ class HdfsEnv : public Env {
                         // object here so that we can use posix timers,
                         // posix threads, etc.
 
-  static const std::string kProto;
+  static const std::string kHdfsProto;
+  static const std::string kFdsProto;
   static const std::string pathsep;
 
   /**
-   * If the URI is specified of the form hdfs://server:port/path,
-   * then connect to the specified cluster
-   * else connect to default.
+   * If the URI is specified of the form hdfs://server:port/path
+   * or fds://accessId:accessSecret@bucket.endpoint#port then connect
+   * to the specified cluster else connect to default.
    */
   hdfsFS connectToPath(const std::string& uri) {
     if (uri.empty()) {
       return nullptr;
     }
-    if (uri.find(kProto) != 0) {
-      // uri doesn't start with hdfs:// -> use default:0, which is special
-      // to libhdfs.
-      return hdfsConnectNewInstance("default", 0);
-    }
-    const std::string hostport = uri.substr(kProto.length());
 
     std::vector <std::string> parts;
-    split(hostport, ':', parts);
+    if (uri.find(kHdfsProto) == 0) {
+      const std::string hostport = uri.substr(kHdfsProto.length());
+      split(hostport, ':', parts);
+    } else if (uri.find(kFdsProto) == 0) {
+      split(uri, '#', parts);
+    } else {
+      // uri doesn't start with hdfs:// or fds:// -> use default:0, which is special
+      // to libhdfs.
+      fprintf(stderr, "[hdfs]You now access the default hdfs/fds url\n");
+      return hdfsConnectNewInstance("default", 0);
+    }
+
+    fprintf(stderr, "[hdfs]You now access the hdfs/fds url:%s\n", uri.c_str());}
     if (parts.size() != 2) {
-      throw HdfsFatalException("Bad uri for hdfs " + uri);
+      throw HdfsFatalException("Bad uri for hdfs/fds " + uri);
     }
     // parts[0] = hosts, parts[1] = port/xxx/yyy
     std::string host(parts[0]);
@@ -213,7 +220,7 @@ class HdfsEnv : public Env {
     tPort port;
     port = atoi(portStr.c_str());
     if (port == 0) {
-      throw HdfsFatalException("Bad host-port for hdfs " + uri);
+      throw HdfsFatalException("Bad host-port for hdfs/fds " + uri);
     }
     hdfsFS fs = hdfsConnectNewInstance(host.c_str(), port);
     return fs;
