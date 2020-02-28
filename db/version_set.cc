@@ -3425,7 +3425,6 @@ std::string Version::DebugString(bool hex, bool print_stats) const {
       AppendNumberTo(&r, files[i]->fd.largest_seqno);
       r.append("]");
       r.append("[");
-      // TODO(laiyingchun): Pegasus data DebugString() not work correctly now.
       r.append(files[i]->smallest.DebugString(hex));
       r.append(" .. ");
       r.append(files[i]->largest.DebugString(hex));

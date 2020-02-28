@@ -37,6 +37,10 @@ enum Tag : uint32_t {
   // 8 was used for large value refs
   kPrevLogNumber = 9,
   kLastFlushSeqDecree = 10,
+  // On official branch, kMinLogNumberToKeep = 10, but on Pegasus branch we
+  // have introduced a new flag kLastFlushSeqDecree = 10 in previous version,
+  // so intend to keep compatible with old Pegasus version, we have to set
+  // kMinLogNumberToKeep = 11.
   kMinLogNumberToKeep = 11,
   // Ignore-able field
   kDbId = kTagSafeIgnoreMask + 1,
