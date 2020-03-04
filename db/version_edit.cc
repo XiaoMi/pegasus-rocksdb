@@ -762,7 +762,7 @@ std::string VersionEdit::DebugString(bool hex_key) const {
     r.append(" entries remains");
   }
   if (has_pegasus_data_version_) {
-    r.append("\n  ValueSchemaVersion: ");
+    r.append("\n  PegasusDataVersion: ");
     AppendNumberTo(&r, pegasus_data_version_);
   }
   if (has_last_manual_compact_finish_time_) {
