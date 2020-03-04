@@ -1641,7 +1641,7 @@ Status DBImpl::FlushMemTable(ColumnFamilyData* cfd,
         nonmem_write_thread_.ExitUnbatched(&nonmem_w);
       }
     }
-    }
+    } // if (!pegasus_data_ || !cfd->mem()->IsEmpty())
   }
   TEST_SYNC_POINT("DBImpl::FlushMemTable:AfterScheduleFlush");
   TEST_SYNC_POINT("DBImpl::FlushMemTable:BeforeWaitForBgFlush");
