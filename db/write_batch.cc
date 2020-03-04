@@ -1988,7 +1988,7 @@ Status WriteBatchInternal::InsertInto(
       sequence, memtables, flush_scheduler, trim_history_scheduler,
       ignore_missing_column_families, recovery_log_number, db,
       concurrent_memtable_writes, nullptr /*has_valid_writes*/, seq_per_batch,
-      batch_per_txn, false, decree, pegasus_data);
+      batch_per_txn, false /*hint_per_batch*/, decree, pegasus_data);
   for (auto w : write_group) {
     if (w->CallbackFailed()) {
       continue;
