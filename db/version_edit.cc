@@ -53,7 +53,7 @@ enum Tag : uint32_t {
   kColumnFamilyAdd = 201,
   kColumnFamilyDrop = 202,
   kMaxColumnFamily = 203,
-  kValueSchemaVersion = 204,
+  kPegasusDataVersion = 204,
   kLastManualCompactFinishTime = 205,
 
   kInAtomicGroup = 300,
@@ -189,7 +189,7 @@ bool VersionEdit::EncodeTo(std::string* dst) const {
     PutVarint32Varint32(dst, kMaxColumnFamily, max_column_family_);
   }
   if (has_pegasus_data_version_) {
-    PutVarint32(dst, kValueSchemaVersion);
+    PutVarint32(dst, kPegasusDataVersion);
     PutVarint32(dst, pegasus_data_version_);
   }
   if (has_last_manual_compact_finish_time_) {
@@ -499,7 +499,7 @@ Status VersionEdit::DecodeFrom(const Slice& src) {
         }
         break;
 
-      case kValueSchemaVersion:
+      case kPegasusDataVersion:
         if (GetVarint32(&input, &pegasus_data_version_)) {
           has_pegasus_data_version_ = true;
         } else {
