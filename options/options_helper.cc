@@ -141,6 +141,11 @@ DBOptions BuildDBOptions(const ImmutableDBOptions& immutable_db_options,
   options.avoid_unnecessary_blocking_io =
       immutable_db_options.avoid_unnecessary_blocking_io;
   options.log_readahead_size = immutable_db_options.log_readahead_size;
+  options.pegasus_data =
+      immutable_db_options.pegasus_data;
+  options.pegasus_data_version =
+      immutable_db_options.pegasus_data_version;
+
   return options;
 }
 
@@ -1674,6 +1679,14 @@ std::unordered_map<std::string, OptionTypeInfo>
         {"log_readahead_size",
          {offsetof(struct DBOptions, log_readahead_size), OptionType::kSizeT,
           OptionVerificationType::kNormal, false, 0}},
+        {"pegasus_data",
+         {offsetof(struct DBOptions, pegasus_data), OptionType::kBoolean,
+          OptionVerificationType::kNormal, false,
+          offsetof(struct ImmutableDBOptions, pegasus_data)}},
+        {"pegasus_data_version",
+         {offsetof(struct DBOptions, pegasus_data_version), OptionType::kUInt32T,
+          OptionVerificationType::kNormal, false,
+          offsetof(struct ImmutableDBOptions, pegasus_data_version)}},
 };
 
 std::unordered_map<std::string, BlockBasedTableOptions::IndexType>

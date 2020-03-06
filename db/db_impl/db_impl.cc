@@ -225,6 +225,7 @@ DBImpl::DBImpl(const DBOptions& options, const std::string& dbname,
       // requires a custom gc for compaction, we use that to set use_custom_gc_
       // as well.
       use_custom_gc_(seq_per_batch),
+      pegasus_data_(options.pegasus_data),
       shutdown_initiated_(false),
       own_sfm_(options.sst_file_manager == nullptr),
       preserve_deletes_(options.preserve_deletes),
@@ -1267,6 +1268,33 @@ void DBImpl::MarkLogsSynced(uint64_t up_to, bool synced_dir,
 
 SequenceNumber DBImpl::GetLatestSequenceNumber() const {
   return versions_->LastSequence();
+}
+
+uint64_t DBImpl::GetLastFlushedDecree() const {
+  SequenceNumber seq;
+  uint64_t d;
+
+  mutex_.Lock();
+  // ATTENTION(qinzuoyan): only use default column family.
+  assert(!pegasus_data_ || versions_->GetColumnFamilySet()->NumberOfColumnFamilies() == 1u);
+  versions_->GetColumnFamilySet()->GetDefault()->current()->GetLastFlushSeqDecree(&seq, &d);
+  mutex_.Unlock();
+
+  return d;
+}
+
+uint32_t DBImpl::GetPegasusDataVersion() const {
+  mutex_.Lock();
+  uint32_t version = versions_->GetColumnFamilySet()->GetPegasusDataVersion();
+  mutex_.Unlock();
+  return version;
+}
+
+uint64_t DBImpl::GetLastManualCompactFinishTime() const {
+  mutex_.Lock();
+  uint64_t ms = versions_->GetColumnFamilySet()->GetLastManualCompactFinishTime();
+  mutex_.Unlock();
+  return ms;
 }
 
 void DBImpl::SetLastPublishedSequence(SequenceNumber seq) {

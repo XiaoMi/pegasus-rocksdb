@@ -1104,6 +1104,14 @@ struct DBOptions {
   //
   // Default: 0
   size_t log_readahead_size = 0;
+
+  // Whether the data is for Pegasus.
+  // Default: false
+  bool pegasus_data = false;
+
+  // Pegasus data version.
+  // Default: 0
+  uint32_t pegasus_data_version = 0;
 };
 
 // Options to control the behavior of a database (passed to DB::Open)
@@ -1366,6 +1374,9 @@ struct WriteOptions {
   // and the API is subject to change.
   const Slice* timestamp;
 
+  // Decree is an value affiliated to the write.
+  uint64_t given_decree;
+
   WriteOptions()
       : sync(false),
         disableWAL(false),
@@ -1373,7 +1384,8 @@ struct WriteOptions {
         no_slowdown(false),
         low_pri(false),
         memtable_insert_hint_per_batch(false),
-        timestamp(nullptr) {}
+        timestamp(nullptr),
+        given_decree(0) {}
 };
 
 // Options that control flush operations

@@ -1231,6 +1231,9 @@ class MemTableInserter : public WriteBatch::Handler {
   using HintMapType = std::aligned_storage<sizeof(HintMap)>::type;
   HintMapType hint_;
 
+  uint64_t decree_;
+  bool pegasus_data_;
+
   HintMap& GetHintMap() {
     assert(hint_per_batch_);
     if (!hint_created_) {
@@ -1273,7 +1276,8 @@ class MemTableInserter : public WriteBatch::Handler {
                    uint64_t recovering_log_number, DB* db,
                    bool concurrent_memtable_writes,
                    bool* has_valid_writes = nullptr, bool seq_per_batch = false,
-                   bool batch_per_txn = true, bool hint_per_batch = false)
+                   bool batch_per_txn = true, bool hint_per_batch = false,
+                   uint64_t decree = 0, bool pegasus_data = false)
       : sequence_(_sequence),
         cf_mems_(cf_mems),
         flush_scheduler_(flush_scheduler),
@@ -1299,7 +1303,9 @@ class MemTableInserter : public WriteBatch::Handler {
         duplicate_detector_(),
         dup_dectector_on_(false),
         hint_per_batch_(hint_per_batch),
-        hint_created_(false) {
+        hint_created_(false),
+        decree_(decree),
+        pegasus_data_(pegasus_data) {
     assert(cf_mems_);
   }
 
@@ -1495,6 +1501,9 @@ class MemTableInserter : public WriteBatch::Handler {
     // Since all Puts are logged in transaction logs (if enabled), always bump
     // sequence number. Even if the update eventually fails and does not result
     // in memtable add/update.
+    if (pegasus_data_) {
+      mem->UpdateLastSeqDecree(sequence_, decree_);
+    }
     MaybeAdvanceSeq();
     CheckMemtableFull();
     return ret_status;
@@ -1518,6 +1527,9 @@ class MemTableInserter : public WriteBatch::Handler {
       ret_status = Status::TryAgain("key+seq exists");
       const bool BATCH_BOUNDRY = true;
       MaybeAdvanceSeq(BATCH_BOUNDRY);
+    }
+    if (pegasus_data_) {
+      mem->UpdateLastSeqDecree(sequence_, decree_);
     }
     MaybeAdvanceSeq();
     CheckMemtableFull();
@@ -1759,6 +1771,9 @@ class MemTableInserter : public WriteBatch::Handler {
       // the rebuilding transaction object.
       WriteBatchInternal::Merge(rebuilding_trx_, column_family_id, key, value);
     }
+    if (pegasus_data_) {
+      mem->UpdateLastSeqDecree(sequence_, decree_);
+    }
     MaybeAdvanceSeq();
     CheckMemtableFull();
     return ret_status;
@@ -1967,12 +1982,13 @@ Status WriteBatchInternal::InsertInto(
     ColumnFamilyMemTables* memtables, FlushScheduler* flush_scheduler,
     TrimHistoryScheduler* trim_history_scheduler,
     bool ignore_missing_column_families, uint64_t recovery_log_number, DB* db,
-    bool concurrent_memtable_writes, bool seq_per_batch, bool batch_per_txn) {
+    bool concurrent_memtable_writes, bool seq_per_batch, bool batch_per_txn,
+    uint64_t decree, bool pegasus_data) {
   MemTableInserter inserter(
       sequence, memtables, flush_scheduler, trim_history_scheduler,
       ignore_missing_column_families, recovery_log_number, db,
       concurrent_memtable_writes, nullptr /*has_valid_writes*/, seq_per_batch,
-      batch_per_txn);
+      batch_per_txn, false /*hint_per_batch*/, decree, pegasus_data);
   for (auto w : write_group) {
     if (w->CallbackFailed()) {
       continue;

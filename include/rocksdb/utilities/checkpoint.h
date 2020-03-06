@@ -50,6 +50,13 @@ class Checkpoint {
                                     const std::string& export_dir,
                                     ExportImportFilesMetaData** metadata);
 
+  // Quickly build an openable snapshot of RocksDB on the same disk, will not
+  // wait flush before generate checkpoint.
+  // The decree of the checkpoint generated will be returned through
+  // *checkpoint_decree, if checkpoint_decree not nullptr
+  // The directory should not already exist and will be created by this API.
+  virtual Status CreateCheckpointQuick(const std::string& checkpoint_dir,
+                                       /*output*/ uint64_t* checkpoint_decree);
   virtual ~Checkpoint() {}
 };
 

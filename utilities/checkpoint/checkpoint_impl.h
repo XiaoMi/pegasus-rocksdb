@@ -57,6 +57,13 @@ class CheckpointImpl : public Checkpoint {
           create_file_cb,
       uint64_t* sequence_number, uint64_t log_size_for_flush);
 
+  // Quickly build an openable snapshot of RocksDB.
+  // Useful when there is only one column family in the RocksDB.
+  using Checkpoint::CreateCheckpointQuick;
+  virtual Status CreateCheckpointQuick(
+      const std::string& checkpoint_dir,
+      /*output*/ uint64_t* checkpoint_decree) override;
+
  private:
   void CleanStagingDirectory(const std::string& path, Logger* info_log);
 

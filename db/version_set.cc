@@ -1744,6 +1744,8 @@ Version::Version(ColumnFamilyData* column_family_data, VersionSet* vset,
       next_(this),
       prev_(this),
       refs_(0),
+      last_flush_sequence_(0),
+      last_flush_decree_(0),
       env_options_(env_opt),
       mutable_cf_options_(mutable_cf_options),
       version_number_(version_number) {}
@@ -3563,6 +3565,14 @@ void VersionSet::AppendVersion(ColumnFamilyData* column_family_data,
   assert(v != current);
   if (current != nullptr) {
     assert(current->refs_ > 0);
+    if (db_options_->pegasus_data) {
+      // inherit last sequence/decree from old version, but for flush the old
+      // value would not take effect.
+      SequenceNumber seq;
+      uint64_t d;
+      current->GetLastFlushSeqDecree(&seq, &d);
+      v->UpdateLastFlushSeqDecreeIfNeeded(seq, d);
+    }
     current->Unref();
   }
   column_family_data->SetCurrent(v);
@@ -3758,6 +3768,9 @@ Status VersionSet::ProcessManifestWrites(
       first_writer.edit_list.front()->SetMaxColumnFamily(
           column_family_set_->GetMaxColumnFamily());
     }
+    // also we need to persist Pegasus data version
+    first_writer.edit_list.front()->SetPegasusDataVersion(
+        column_family_set_->GetPegasusDataVersion());
   }
 
   {
@@ -3903,6 +3916,13 @@ Status VersionSet::ProcessManifestWrites(
             max_log_number_in_batch =
                 std::max(max_log_number_in_batch, e->log_number_);
           }
+          if (db_options_->pegasus_data) {
+            // update last flush sequence/decree from VersionEdit
+            SequenceNumber seq;
+            uint64_t d;
+            e->GetLastFlushSeqDecree(&seq, &d);
+            version->UpdateLastFlushSeqDecreeIfNeeded(seq, d);
+          }
         }
         if (max_log_number_in_batch != 0) {
           assert(version->cfd_->GetLogNumber() <= max_log_number_in_batch);
@@ -3950,7 +3970,7 @@ Status VersionSet::ProcessManifestWrites(
       ROCKS_LOG_INFO(db_options_->info_log,
                      "Deleting manifest %" PRIu64 " current manifest %" PRIu64
                      "\n",
-                     manifest_file_number_, pending_manifest_file_number_);
+                     pending_manifest_file_number_, manifest_file_number_);
       env_->DeleteFile(
           DescriptorFileName(dbname_, pending_manifest_file_number_));
     }
@@ -4074,6 +4094,13 @@ void VersionSet::LogAndApplyCFHelper(VersionEdit* edit) {
   // last_allocated_sequence_ as the last sequence.
   edit->SetLastSequence(db_options_->two_write_queues ? last_allocated_sequence_
                                                       : last_sequence_);
+  if (db_options_->pegasus_data) {
+    assert(column_family_set_->NumberOfColumnFamilies() == 1u);
+    SequenceNumber seq;
+    uint64_t d;
+    column_family_set_->GetDefault()->current()->GetLastFlushSeqDecree(&seq, &d);
+    edit->UpdateLastFlushSeqDecree(seq, d);
+  }
   if (edit->is_column_family_drop_) {
     // if we drop column family, we have to make sure to save max column family,
     // so that we don't reuse existing ID
@@ -4106,6 +4133,17 @@ Status VersionSet::LogAndApplyHelper(ColumnFamilyData* cfd,
   // last_allocated_sequence_ as the last sequence.
   edit->SetLastSequence(db_options_->two_write_queues ? last_allocated_sequence_
                                                       : last_sequence_);
+
+  if (db_options_->pegasus_data) {
+    assert(column_family_set_->NumberOfColumnFamilies() == 1u);
+    SequenceNumber seq;
+    uint64_t d;
+    column_family_set_->GetDefault()->current()->GetLastFlushSeqDecree(&seq, &d);
+    edit->UpdateLastFlushSeqDecree(seq, d);
+
+    uint64_t ms = column_family_set_->GetLastManualCompactFinishTime();
+    edit->SetLastManualCompactFinishTime(ms);
+  }
 
   Status s = builder->Apply(edit);
 
@@ -4254,6 +4292,21 @@ Status VersionSet::ExtractInfoFromVersionEdit(
   if (from_edit.has_last_sequence_) {
     version_edit_params->SetLastSequence(from_edit.last_sequence_);
   }
+
+  if (from_edit.has_pegasus_data_version_) {
+    version_edit_params->SetPegasusDataVersion(from_edit.pegasus_data_version_);
+  }
+  
+  if (from_edit.has_last_manual_compact_finish_time_) {
+    version_edit_params->SetLastManualCompactFinishTime(
+        from_edit.last_manual_compact_finish_time_);
+  }
+  
+  if (from_edit.has_last_flush_seq_decree_) {
+    version_edit_params->UpdateLastFlushSeqDecree(
+        from_edit.last_flush_sequence_, from_edit.last_flush_decree_);
+  }
+
   return Status::OK();
 }
 
@@ -4434,6 +4487,13 @@ Status VersionSet::Recover(
       s = Status::Corruption("no meta-lognumber entry in descriptor");
     } else if (!version_edit_params.has_last_sequence_) {
       s = Status::Corruption("no last-sequence-number entry in descriptor");
+    } else if (!version_edit_params.has_pegasus_data_version_) {
+      if (db_options_->pegasus_data) {
+        s = Status::Corruption("no pegasus-data-version entry in descriptor");
+      }
+    } else if (!version_edit_params.has_last_manual_compact_finish_time_) {
+      ROCKS_LOG_INFO(db_options_->info_log,
+                     "no last-manual-compact-finish-time entry in descriptor");
     }
 
     if (!version_edit_params.has_prev_log_number_) {
@@ -4442,6 +4502,10 @@ Status VersionSet::Recover(
 
     column_family_set_->UpdateMaxColumnFamily(
         version_edit_params.max_column_family_);
+    column_family_set_->SetPegasusDataVersion(
+        version_edit_params.pegasus_data_version_);
+    column_family_set_->SetLastManualCompactFinishTime(
+        version_edit_params.last_manual_compact_finish_time_);
 
     // When reading DB generated using old release, min_log_number_to_keep=0.
     // All log files will be scanned for potential prepare entries.
@@ -4501,6 +4565,14 @@ Status VersionSet::Recover(
                                current_version_number_++);
       builder->SaveTo(v->storage_info());
 
+      if (db_options_->pegasus_data) {
+        // update last flush sequence/decree
+        SequenceNumber sequence;
+        uint64_t decree = 0;
+        version_edit_params.GetLastFlushSeqDecree(&sequence, &decree);
+        v->UpdateLastFlushSeqDecreeIfNeeded(sequence, decree);
+      }
+
       // Install recovered version
       v->PrepareApply(*cfd->GetLatestMutableCFOptions(),
           !(db_options_->skip_stats_update_on_db_open));
@@ -4520,11 +4592,24 @@ Status VersionSet::Recover(
         "manifest_file_number is %" PRIu64 ", next_file_number is %" PRIu64
         ", last_sequence is %" PRIu64 ", log_number is %" PRIu64
         ",prev_log_number is %" PRIu64 ",max_column_family is %" PRIu32
-        ",min_log_number_to_keep is %" PRIu64 "\n",
+        ",min_log_number_to_keep is %" PRIu64
+        ",pegasus_data_version is %" PRIu32
+        ",last_manual_compact_finish_time is %" PRIu64 "\n",
         manifest_path.c_str(), manifest_file_number_, next_file_number_.load(),
         last_sequence_.load(), version_edit_params.log_number_,
         prev_log_number_, column_family_set_->GetMaxColumnFamily(),
-        min_log_number_to_keep_2pc());
+        min_log_number_to_keep_2pc(),
+        column_family_set_->GetPegasusDataVersion(),
+        column_family_set_->GetLastManualCompactFinishTime());
+
+    if (db_options_->pegasus_data) {
+      // For Pegasus, we have disabled WAL, so we need to reset last_sequence to
+      // last_flush_sequence.
+      last_sequence_ = LastFlushSequence();
+      ROCKS_LOG_INFO(db_options_->info_log,
+                     "Reset last_sequence to last_flush_sequence: %" PRIu64,
+                     last_sequence_.load());
+    }
 
     for (auto cfd : *column_family_set_) {
       if (cfd->IsDropped()) {
@@ -4720,6 +4805,7 @@ Status VersionSet::DumpManifest(Options& options, std::string& dscname,
   std::unordered_map<uint32_t, std::string> comparators;
   std::unordered_map<uint32_t, std::unique_ptr<BaseReferencedVersionBuilder>>
       builders;
+  std::unordered_map<uint32_t, std::pair<uint64_t, uint64_t>> last_flush_seq_decree_map;
 
   // add default column family
   VersionEdit default_cf_edit;
@@ -4829,12 +4915,29 @@ Status VersionSet::DumpManifest(Options& options, std::string& dscname,
         have_last_sequence = true;
       }
 
+      if (edit.has_last_flush_seq_decree_) {
+        auto& p = last_flush_seq_decree_map[edit.column_family_];
+        if (edit.last_flush_sequence_ > p.first) {
+          assert(edit.last_flush_decree_ >= p.second);
+          p.first = edit.last_flush_sequence_;
+          p.second = edit.last_flush_decree_;
+        }
+      }
+
       if (edit.has_max_column_family_) {
         column_family_set_->UpdateMaxColumnFamily(edit.max_column_family_);
       }
 
       if (edit.has_min_log_number_to_keep_) {
         MarkMinLogNumberToKeep2PC(edit.min_log_number_to_keep_);
+      }
+
+      if (edit.has_pegasus_data_version_) {
+        column_family_set_->SetPegasusDataVersion(edit.pegasus_data_version_);
+      }
+
+      if (edit.has_last_manual_compact_finish_time_) {
+        column_family_set_->SetLastManualCompactFinishTime(edit.last_manual_compact_finish_time_);
       }
     }
   }
@@ -4867,6 +4970,10 @@ Status VersionSet::DumpManifest(Options& options, std::string& dscname,
                                *cfd->GetLatestMutableCFOptions(),
                                current_version_number_++);
       builder->SaveTo(v->storage_info());
+
+      auto& p = last_flush_seq_decree_map[cfd->GetID()];
+      v->UpdateLastFlushSeqDecreeIfNeeded(p.first, p.second);
+
       v->PrepareApply(*cfd->GetLatestMutableCFOptions(), false);
 
       printf("--------------- Column family \"%s\"  (ID %" PRIu32
@@ -4879,6 +4986,11 @@ Status VersionSet::DumpManifest(Options& options, std::string& dscname,
       } else {
         printf("comparator: <NO COMPARATOR>\n");
       }
+      SequenceNumber seq;
+      uint64_t d;
+      v->GetLastFlushSeqDecree(&seq, &d);
+      printf("last flush sequence: %" PRIu64 "\n", seq);
+      printf("last flush decree: %" PRIu64 "\n", d);
       printf("%s \n", v->DebugString(hex).c_str());
       delete v;
     }
@@ -4889,13 +5001,18 @@ Status VersionSet::DumpManifest(Options& options, std::string& dscname,
     last_sequence_ = last_sequence;
     prev_log_number_ = previous_log_number;
 
+    auto& p = last_flush_seq_decree_map[0]; // default column family
     printf("next_file_number %" PRIu64 " last_sequence %" PRIu64
            "  prev_log_number %" PRIu64 " max_column_family %" PRIu32
-           " min_log_number_to_keep "
-           "%" PRIu64 "\n",
+           " min_log_number_to_keep %" PRIu64
+           " last_flush_sequence %" PRIu64 " last_flush_decree %" PRIu64
+           " pegasus_data_version  %" PRIu32 " last_manual_compact_finish_time %" PRIu64 "\n",
            next_file_number_.load(), last_sequence, previous_log_number,
            column_family_set_->GetMaxColumnFamily(),
-           min_log_number_to_keep_2pc());
+           min_log_number_to_keep_2pc(),
+           p.first, p.second,
+           column_family_set_->GetPegasusDataVersion(),
+           column_family_set_->GetLastManualCompactFinishTime());
   }
 
   return s;

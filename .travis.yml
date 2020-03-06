@@ -121,4 +121,4 @@ script:
     esac
 notifications:
     email:
-      - leveldb@fb.com
+      - pegasus-help@xiaomi.com
