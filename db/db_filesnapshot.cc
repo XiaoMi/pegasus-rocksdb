@@ -172,7 +172,7 @@ Status DBImpl::GetLiveFilesQuick(std::vector<std::string>& ret,
     cfd->current()->GetLastFlushSeqDecree(&seq, &d);
     if (seq > *last_sequence) {
       *last_sequence = seq;
-      // Pegasus decree is only wrote on default column family consistently.
+      // Pegasus decree is only written on default column family consistently.
       if (cfd->GetID() == 0) {
         assert(d >= *last_decree);
         *last_decree = d;
