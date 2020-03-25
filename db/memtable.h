@@ -375,9 +375,12 @@ class MemTable {
 
   void UpdateLastSeqDecree(SequenceNumber sequence, uint64_t decree) {
     assert(sequence > last_sequence_); // sequence should not be shared
-    assert(decree >= last_decree_); // decree may be shared
     last_sequence_ = sequence;
-    last_decree_ = decree;
+    // decree of non-default column family would be 0, don't record it
+    if (decree != 0) {
+      assert(decree >= last_decree_); // decree may be shared
+      last_decree_ = decree;
+    }
   }
 
  private:

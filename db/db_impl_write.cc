@@ -79,10 +79,6 @@ Status DBImpl::WriteImpl(const WriteOptions& write_options,
   assert(!WriteBatchInternal::IsLatestPersistentState(my_batch) ||
          disable_memtable);
 
-  // ATTENTION(qinzuoyan): always only use default column family under
-  // replication framework.
-  assert(!pegasus_data_ || single_column_family_mode_);
-
   Status status;
   if (write_options.low_pri) {
     status = ThrottleLowPriWritesIfNeeded(write_options, my_batch);
