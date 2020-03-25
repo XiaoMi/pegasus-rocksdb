@@ -311,9 +311,12 @@ class VersionEdit {
 
   void UpdateLastFlushSeqDecree(SequenceNumber sequence, uint64_t decree) {
     if (sequence > last_flush_sequence_) {
-      assert(decree >= last_flush_decree_);
       last_flush_sequence_ = sequence;
-      last_flush_decree_ = decree;
+      // decree of non-default column family would be 0, don't record it
+      if (decree != 0) {
+        assert(decree >= last_flush_decree_);
+        last_flush_decree_ = decree;
+      }
       has_last_flush_seq_decree_ = true;
     }
   }
