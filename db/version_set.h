@@ -689,9 +689,12 @@ class Version {
 
   void UpdateLastFlushSeqDecreeIfNeeded(SequenceNumber sequence, uint64_t decree) {
     if (sequence > last_flush_sequence_) {
-      assert(decree >= last_flush_decree_);
       last_flush_sequence_ = sequence;
-      last_flush_decree_ = decree;
+      // decree of non-default column family would be 0, don't record it
+      if (decree != 0) {
+        assert(decree >= last_flush_decree_);
+        last_flush_decree_ = decree;
+      }
     }
   }
 
@@ -964,7 +967,6 @@ class VersionSet {
   // Return the last flush sequence number of default column family.
   uint64_t LastFlushSequence() const {
     assert(db_options_->pegasus_data);
-    assert(column_family_set_->NumberOfColumnFamilies() == 1u);
     SequenceNumber seq;
     uint64_t d;
     column_family_set_->GetDefault()->current()->GetLastFlushSeqDecree(&seq, &d);

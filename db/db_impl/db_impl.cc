@@ -1275,8 +1275,6 @@ uint64_t DBImpl::GetLastFlushedDecree() const {
   uint64_t d;
 
   mutex_.Lock();
-  // ATTENTION(qinzuoyan): only use default column family.
-  assert(!pegasus_data_ || versions_->GetColumnFamilySet()->NumberOfColumnFamilies() == 1u);
   versions_->GetColumnFamilySet()->GetDefault()->current()->GetLastFlushSeqDecree(&seq, &d);
   mutex_.Unlock();
 

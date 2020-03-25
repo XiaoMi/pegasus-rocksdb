@@ -159,9 +159,6 @@ Status DBImpl::GetLiveFilesQuick(std::vector<std::string>& ret,
 
   mutex_.Lock();
 
-  // ATTENTION(qinzuoyan): only use default column family.
-  assert(versions_->GetColumnFamilySet()->NumberOfColumnFamilies() == 1u);
-
   // Make a set of all of the live *.sst files
   std::vector<FileDescriptor> live;
   for (auto cfd : *versions_->GetColumnFamilySet()) {
@@ -174,9 +171,12 @@ Status DBImpl::GetLiveFilesQuick(std::vector<std::string>& ret,
     uint64_t d;
     cfd->current()->GetLastFlushSeqDecree(&seq, &d);
     if (seq > *last_sequence) {
-      assert(d >= *last_decree);
       *last_sequence = seq;
-      *last_decree = d;
+      // Pegasus decree is only written on default column family consistently.
+      if (cfd->GetID() == 0) {
+        assert(d >= *last_decree);
+        *last_decree = d;
+      }
     }
   }
 
