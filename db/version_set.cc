@@ -2793,7 +2793,6 @@ void VersionSet::LogAndApplyCFHelper(VersionEdit* edit) {
                             ? last_to_be_written_sequence_
                             : last_sequence_);
   if (db_options_->pegasus_data) {
-    assert(column_family_set_->NumberOfColumnFamilies() == 1u);
     SequenceNumber seq;
     uint64_t d;
     column_family_set_->GetDefault()->current()->GetLastFlushSeqDecree(&seq, &d);
@@ -2830,7 +2829,6 @@ void VersionSet::LogAndApplyHelper(ColumnFamilyData* cfd,
                             ? last_to_be_written_sequence_
                             : last_sequence_);
   if (db_options_->pegasus_data) {
-    assert(column_family_set_->NumberOfColumnFamilies() == 1u);
     SequenceNumber seq;
     uint64_t d;
     column_family_set_->GetDefault()->current()->GetLastFlushSeqDecree(&seq, &d);
