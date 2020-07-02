@@ -36,7 +36,12 @@ enum Tag : uint32_t {
   kNewFile = 7,
   // 8 was used for large value refs
   kPrevLogNumber = 9,
-  kMinLogNumberToKeep = 10,
+  kLastFlushSeqDecree = 10,
+  // On official branch, kMinLogNumberToKeep = 10, but on Pegasus branch we
+  // have introduced a new flag kLastFlushSeqDecree = 10 in previous version,
+  // so intend to keep compatible with old Pegasus version, we have to set
+  // kMinLogNumberToKeep = 11.
+  kMinLogNumberToKeep = 11,
   // Ignore-able field
   kDbId = kTagSafeIgnoreMask + 1,
 
@@ -48,6 +53,8 @@ enum Tag : uint32_t {
   kColumnFamilyAdd = 201,
   kColumnFamilyDrop = 202,
   kMaxColumnFamily = 203,
+  kPegasusDataVersion = 204,
+  kLastManualCompactFinishTime = 205,
 
   kInAtomicGroup = 300,
 };
@@ -447,6 +454,16 @@ Status VersionEdit::DecodeFrom(const Slice& src) {
         }
         break;
 
+      case kLastFlushSeqDecree:
+        uint64_t last_flush_sequence;
+        uint64_t last_flush_decree;
+        if (GetVarint64(&input, &last_flush_sequence) && GetVarint64(&input, &last_flush_decree)) {
+          // Just read these fileds to keep compatible with old version
+        } else {
+          msg = "last flush sequence number and decree";
+        }
+        break;
+
       case kMaxColumnFamily:
         if (GetVarint32(&input, &max_column_family_)) {
           has_max_column_family_ = true;
@@ -460,6 +477,24 @@ Status VersionEdit::DecodeFrom(const Slice& src) {
           has_min_log_number_to_keep_ = true;
         } else {
           msg = "min log number to kee";
+        }
+        break;
+
+      case kPegasusDataVersion:
+        uint32_t pegasus_data_version;
+        if (GetVarint32(&input, &pegasus_data_version)) {
+          // Just read these fileds to keep compatible with old version
+        } else {
+          msg = "Pegasus data version";
+        }
+        break;
+
+      case kLastManualCompactFinishTime:
+        uint64_t last_manual_compact_finish_time;
+        if (GetVarint64(&input, &last_manual_compact_finish_time)) {
+          // Just read these fileds to keep compatible with old version
+        } else {
+          msg = "last manual compact finish time";
         }
         break;
 
