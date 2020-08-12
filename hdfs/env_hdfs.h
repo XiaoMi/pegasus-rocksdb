@@ -203,7 +203,7 @@ class HdfsEnv : public Env {
       return hdfsConnectNewInstance("default", 0);
     }	
 
-    fprintf(stderr, "[hdfs]You now access the hdfs/fds url:%s\n", uri.c_str());}
+    fprintf(stderr, "[hdfs]You now access the hdfs/fds url:%s\n", uri.c_str());
 
     if (parts.size() != 2) {
       throw HdfsFatalException("Bad uri for hdfs/fds " + uri);   
