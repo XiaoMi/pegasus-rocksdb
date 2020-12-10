@@ -219,9 +219,6 @@ class HdfsEnv : public Env {
 
     tPort port;
     port = atoi(portStr.c_str());
-    if (port == 0) {
-      throw HdfsFatalException("Bad host-port for hdfs " + uri);
-    }
     hdfsFS fs = hdfsConnectNewInstance(host.c_str(), port);
     return fs;
   }
