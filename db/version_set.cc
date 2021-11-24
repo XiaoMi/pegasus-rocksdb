@@ -4095,7 +4095,6 @@ void VersionSet::LogAndApplyCFHelper(VersionEdit* edit) {
   edit->SetLastSequence(db_options_->two_write_queues ? last_allocated_sequence_
                                                       : last_sequence_);
   if (db_options_->pegasus_data) {
-    assert(column_family_set_->NumberOfColumnFamilies() == 1u);
     SequenceNumber seq;
     uint64_t d;
     column_family_set_->GetDefault()->current()->GetLastFlushSeqDecree(&seq, &d);
@@ -4135,7 +4134,6 @@ Status VersionSet::LogAndApplyHelper(ColumnFamilyData* cfd,
                                                       : last_sequence_);
 
   if (db_options_->pegasus_data) {
-    assert(column_family_set_->NumberOfColumnFamilies() == 1u);
     SequenceNumber seq;
     uint64_t d;
     column_family_set_->GetDefault()->current()->GetLastFlushSeqDecree(&seq, &d);
@@ -4296,12 +4294,12 @@ Status VersionSet::ExtractInfoFromVersionEdit(
   if (from_edit.has_pegasus_data_version_) {
     version_edit_params->SetPegasusDataVersion(from_edit.pegasus_data_version_);
   }
-  
+
   if (from_edit.has_last_manual_compact_finish_time_) {
     version_edit_params->SetLastManualCompactFinishTime(
         from_edit.last_manual_compact_finish_time_);
   }
-  
+
   if (from_edit.has_last_flush_seq_decree_) {
     version_edit_params->UpdateLastFlushSeqDecree(
         from_edit.last_flush_sequence_, from_edit.last_flush_decree_);
