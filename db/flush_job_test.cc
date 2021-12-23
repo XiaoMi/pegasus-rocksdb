@@ -388,10 +388,18 @@ TEST_F(FlushJobTest, FlushMemtablesMultipleColumnFamilies) {
   for (auto cfd : all_cfds) {
     mutable_cf_options_list.push_back(cfd->GetLatestMutableCFOptions());
   }
+  autovector<std::list<std::unique_ptr<FlushJobInfo>>*>
+      committed_flush_jobs_info;
+#ifndef ROCKSDB_LITE
+  for (auto& job : flush_jobs) {
+    committed_flush_jobs_info.push_back(job->GetCommittedFlushJobsInfo());
+  }
+#endif  //! ROCKSDB_LITE
 
   Status s = InstallMemtableAtomicFlushResults(
       nullptr /* imm_lists */, all_cfds, mutable_cf_options_list, mems_list,
-      versions_.get(), &mutex_, file_meta_ptrs, &job_context.memtables_to_free,
+      versions_.get(), &mutex_, file_meta_ptrs,
+      committed_flush_jobs_info, &job_context.memtables_to_free,
       nullptr /* db_directory */, nullptr /* log_buffer */);
   ASSERT_OK(s);
 
